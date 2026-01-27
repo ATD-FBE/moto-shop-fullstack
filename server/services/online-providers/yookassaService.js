@@ -128,8 +128,21 @@ export const YOOKASSA_WEBHOOK_IPS = [
 ];
 
 export const checkYooKassaIp = (req) => {
-    const incomingIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-    const cleanIp = Array.isArray(incomingIp) ? incomingIp[0] : incomingIp.split(',')[0].trim();
+    const incomingIp =
+        req.headers['x-forwarded-for'] ||
+        req.socket?.remoteAddress ||
+        req.connection?.remoteAddress ||
+        '';
+
+    let cleanIp = (Array.isArray(incomingIp) ? incomingIp[0] : incomingIp.split(',')[0]).trim();
+
+    // Удаление ::ffff: из IP, IPv6 не затрагивается (не имеет точек)
+    if (cleanIp.startsWith('::ffff:') && cleanIp.includes('.')) {
+        cleanIp = cleanIp.substring(7);
+    }
+
+    console.log(`[Webhook] Проверка IP: ${cleanIp}`);
+
     return ipRangeCheck(cleanIp, YOOKASSA_WEBHOOK_IPS);
 };
 

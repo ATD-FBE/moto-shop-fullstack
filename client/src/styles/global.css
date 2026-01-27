@@ -1,0 +1,356 @@
+@charset "UTF-8";
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  font: 12pt/1.25 Arial, sans-serif;
+}
+
+.layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.header {
+  background-color: rgb(95, 20, 91);
+  color: rgb(228, 238, 240);
+}
+.header .header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+.header .header-container > * {
+  flex-basis: 100%;
+}
+.header .header-container .logo {
+  flex-grow: 1;
+  position: relative;
+  min-width: 280px;
+  height: 64px;
+  background-color: rgb(39, 28, 78);
+}
+.header .header-container .logo img {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  -o-object-fit: cover;
+     object-fit: cover;
+  opacity: 50%;
+}
+.header .header-container .logo a {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgb(228, 238, 240);
+  font-size: 32px;
+  font-weight: bold;
+  text-shadow: 1px 1px 3px rgba(180, 41, 99, 0.75);
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.header .header-container .main-nav ul {
+  display: flex;
+  gap: 18px;
+  margin: 0 18px;
+  list-style: none;
+}
+.header .header-container .main-nav ul > li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.16s ease, box-shadow 0.16s ease;
+}
+.header .header-container .main-nav ul > li:hover {
+  background-color: rgb(133, 25, 88);
+  box-shadow: inset 0 -2px 0 0 rgb(228, 238, 240);
+}
+.header .header-container .main-nav ul > li.active {
+  background-color: rgb(133, 25, 88);
+}
+.header .header-container .main-nav ul > li.active a {
+  color: rgb(171, 177, 182);
+}
+.header .header-container .main-nav ul > li.featured:not(:hover) {
+  box-shadow: 0 0 2px 2px rgba(228, 238, 240, 0.25);
+}
+.header .header-container .main-nav ul > li a {
+  padding: 10px 6px;
+  white-space: nowrap;
+  text-decoration: none;
+  color: rgb(228, 238, 240);
+  font-size: 16px;
+}
+.header .header-container .main-nav ul > li.has-dropdown a {
+  padding-right: 20px;
+}
+.header .header-container .main-nav ul > li.has-dropdown::after {
+  content: "▼";
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  transition: transform 0.16s ease;
+  pointer-events: none;
+}
+.header .header-container .main-nav ul > li.has-dropdown:hover::after {
+  transform: translateY(-50%) rotate(180deg);
+}
+.header .header-container .main-nav ul > li.has-dropdown:hover .dropdown {
+  visibility: visible;
+  opacity: 1;
+  transform: scale(100%);
+}
+.header .header-container .main-nav ul > li.has-dropdown .dropdown {
+  display: block;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  list-style: none;
+  background-color: rgb(39, 28, 78);
+  border-radius: 6px;
+  border-top-left-radius: 0px;
+  z-index: 10;
+  opacity: 0;
+  transform-origin: 0 0;
+  transform: scale(0%);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  visibility: hidden;
+}
+.header .header-container .main-nav ul > li.has-dropdown .dropdown li {
+  margin: 6px;
+  box-shadow: none;
+}
+.header .header-container .main-nav ul > li.has-dropdown .dropdown li.active a {
+  color: rgb(171, 177, 182);
+}
+.header .header-container .main-nav ul > li.has-dropdown .dropdown li a {
+  width: 100%;
+  padding: 8px 12px;
+  color: rgb(228, 238, 240);
+  transition: background-color 0.16s ease;
+}
+.header .header-container .main-nav ul > li.has-dropdown .dropdown li a:hover {
+  background-color: rgb(133, 25, 88);
+}
+.header .header-container .auth-container .auth-links {
+  width: -moz-fit-content;
+  width: fit-content;
+  padding: 10px;
+  background-color: rgb(39, 28, 78);
+  margin: 0 auto;
+}
+.header .header-container .auth-container .auth-links a {
+  color: rgb(228, 238, 240);
+  text-decoration: none;
+  font-size: 13px;
+  white-space: nowrap;
+  transition: color 0.16s ease;
+}
+.header .header-container .auth-container .auth-links a:not(:first-child) {
+  margin-left: 16px;
+}
+.header .header-container .auth-container .auth-links a:hover {
+  color: rgb(180, 41, 99);
+}
+
+main {
+  flex-grow: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.form-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(31, 25, 56, 0.2);
+}
+.form-container .reg-form {
+  padding: 30px;
+  background-color: rgb(228, 238, 240);
+  border: 2px solid rgb(31, 25, 56);
+  border-radius: 12px;
+  font-size: 13pt;
+  text-align: center;
+}
+.form-container .reg-form h2 {
+  margin-bottom: 36px;
+  font-size: 22pt;
+  background-color: rgba(95, 20, 91, 0.1);
+  color: rgb(31, 25, 56);
+}
+.form-container .reg-form p {
+  text-align: right;
+  white-space: nowrap;
+}
+.form-container .reg-form p:not(:last-child) {
+  margin: 42px 0;
+}
+.form-container .reg-form .input-wrapper {
+  position: relative;
+  display: inline-block;
+  margin-left: 8px;
+}
+.form-container .reg-form .input-wrapper.invalid::after {
+  content: "*" attr(data-error);
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.1em);
+  color: rgb(240, 0, 0);
+  font-size: 12px;
+  line-height: 1;
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+}
+.form-container .reg-form .input-wrapper.invalid > input {
+  border-color: rgb(240, 0, 0);
+  background-color: rgba(240, 0, 0, 0.1);
+  box-shadow: inset 0 0 3px rgba(240, 0, 0, 0.5), 0 0 3px rgba(255, 100, 100, 0.2);
+}
+.form-container .reg-form .input-wrapper.invalid > input:hover:not(:focus) {
+  box-shadow: inset 0 0 5px rgba(240, 0, 0, 0.6), 0 0 5px rgba(255, 100, 100, 0.5);
+}
+.form-container .reg-form .input-wrapper.valid > input {
+  border-color: rgb(0, 140, 0);
+  background-color: rgba(0, 140, 0, 0.1);
+  box-shadow: inset 0 0 3px rgba(0, 140, 0, 0.5), 0 0 3px rgba(50, 255, 50, 0.2);
+}
+.form-container .reg-form .input-wrapper.valid > input:hover:not(:focus) {
+  box-shadow: inset 0 0 5px rgba(0, 140, 0, 0.6), 0 0 5px rgba(50, 255, 50, 0.5);
+}
+.form-container .reg-form .input-wrapper input {
+  width: 280px;
+  padding: 4px 6px;
+  font: 13pt "Roboto", sans-serif;
+  border: 2px solid rgb(31, 25, 56);
+  border-radius: 4px;
+  box-shadow: inset 0 0 3px rgba(31, 25, 56, 0.5), 0 0 3px rgba(180, 41, 99, 0.2);
+  transition: all 0.16s ease;
+}
+.form-container .reg-form .input-wrapper input:hover {
+  box-shadow: inset 0 0 5px rgba(31, 25, 56, 0.6), 0 0 5px rgba(180, 41, 99, 0.5);
+}
+.form-container .reg-form .input-wrapper input:focus {
+  background-color: #fff;
+  border-color: rgb(180, 41, 99);
+  box-shadow: inset 0 0 3px rgba(31, 25, 56, 0.7), 0 0 3px rgba(180, 41, 99, 0.8);
+  outline: none;
+}
+.form-container .reg-form .input-wrapper input:focus::-moz-placeholder {
+  opacity: 0.8;
+}
+.form-container .reg-form .input-wrapper input:focus::placeholder {
+  opacity: 0.8;
+}
+.form-container .reg-form .input-wrapper input[disabled] {
+  background-color: rgba(128, 128, 128, 0.2);
+  color: rgba(31, 25, 56, 0.5);
+  border-color: rgba(31, 25, 56, 0.5);
+  box-shadow: inset 0 0 3px rgba(31, 25, 56, 0.5), 0 0 3px rgba(180, 41, 99, 0.2);
+  pointer-events: none;
+  -webkit-user-select: none;
+     -moz-user-select: none;
+          user-select: none;
+}
+.form-container .reg-form button {
+  position: relative;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background-color: rgb(180, 41, 99);
+  font-family: "Roboto", sans-serif;
+  font-size: 15px;
+  font-weight: bold;
+  color: rgb(228, 238, 240);
+  border: 2px solid rgb(180, 41, 99);
+  border-radius: 5px;
+  box-shadow: 0 0 6px rgba(180, 41, 99, 0.6);
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+.form-container .reg-form button.connection-error::after {
+  content: "!!! " attr(data-error) " !!!";
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.4em);
+  color: rgb(240, 0, 0);
+  font-size: 12px;
+  font-weight: normal;
+  line-height: 1;
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+}
+.form-container .reg-form button:hover {
+  background-color: #fff;
+  color: rgb(180, 41, 99);
+  border-color: rgb(180, 41, 99);
+  box-shadow: 0 0 6px #b42963, inset 0 0 3px rgba(180, 41, 99, 0.8);
+}
+.form-container .reg-form button:active {
+  transform: scale(0.98);
+}
+.form-container .reg-form button:focus {
+  outline: none;
+  box-shadow: 0 0 5px rgba(31, 25, 56, 0.8), 0 0 10px #b42963;
+}
+.form-container .reg-form button[disabled] {
+  background-color: rgba(31, 25, 56, 0.4);
+  color: rgba(255, 255, 255, 0.78);
+  border-color: rgba(31, 25, 56, 0.25);
+  box-shadow: 0 0 6px rgba(31, 25, 56, 0.6);
+  pointer-events: none;
+  -webkit-user-select: none;
+     -moz-user-select: none;
+          user-select: none;
+}
+
+.footer {
+  width: 100%;
+  padding: 15px 0;
+  background-color: rgb(31, 25, 56);
+  color: rgb(228, 238, 240);
+  text-align: center;
+}
+.footer .footer-content {
+  display: flex;
+  justify-content: space-around;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 10px;
+}
+.footer .footer-content .splitter::before {
+  content: "|";
+  margin: 0 8px;
+  color: rgb(82, 87, 87);
+}
+.footer .footer-content .letter-enhance {
+  color: rgb(180, 41, 99);
+}
+.footer .footer-content a {
+  color: rgb(228, 238, 240);
+  text-decoration: none;
+  transition: color 0.16s ease;
+}
+.footer .footer-content a:hover {
+  color: rgb(180, 41, 99);
+}/*# sourceMappingURL=global.css.map */

@@ -55,7 +55,7 @@ export const formatOrderStatusHistoryLogs = (orderStatusHistory) => {
 
         // Добавление данных об операторе, изменившем статус (только пользователь)
         const changedByInfo = changedBy
-            ? `${changedBy.name} (ID: ${changedBy.id}, роль: ${changedBy.role.toUpperCase()})`
+            ? `${changedBy.name} (ID: ${changedBy.id}, роль: ${changedBy.role})`
             : NO_VALUE_LABEL;
         line += ` — Изменено: ${changedByInfo}`;
 
@@ -106,7 +106,7 @@ export const formatFinancialsEventHistoryLogs = (eventHistory) => {
         // Добавление данных об операторе, добавившем запись (пользователь или SYSTEM)
         const changedByMeta = [
             changedBy?.id ? `ID: ${changedBy.id}` : null,
-            changedBy?.role ? `роль: ${changedBy.role.toUpperCase()}` : null
+            changedBy?.role ? `роль: ${changedBy.role}` : null
         ].filter(Boolean).join(', ');
         
         const changedByInfo = changedBy
@@ -140,7 +140,7 @@ export const formatAuditLogs = (auditLog) => {
 
         // Добавление данных об операторе, изменившем статус (только пользователь)
         const changedByInfo = changedBy
-            ? `${changedBy.name} (ID: ${changedBy.id}, роль: ${changedBy.role.toUpperCase()})`
+            ? `${changedBy.name} (ID: ${changedBy.id}, роль: ${changedBy.role})`
             : NO_VALUE_LABEL;
         line += ` — Изменено: ${changedByInfo}`;
 

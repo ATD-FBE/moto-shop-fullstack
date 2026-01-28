@@ -7543,6 +7543,7 @@ main {
 
                     p, div {
                         font-size: 13pt;
+                        overflow-wrap: anywhere;
 
                         &:not(:last-child) {
                             margin-bottom: $order-content-spacing;

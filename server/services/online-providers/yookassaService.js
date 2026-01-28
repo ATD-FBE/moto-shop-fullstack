@@ -1,12 +1,12 @@
 import { randomUUID } from 'crypto';
-import { YooKassa } from 'yookassa-sdk';
+import { YooCheckout } from '@a2seven/yoo-checkout';
 import ipRangeCheck from 'ip-range-check';
 import config from '../../config/config.js';
 import { typeCheck } from '../../utils/typeValidation.js';
 import log from '../../utils/logger.js';
 import { TRANSACTION_TYPE, CARD_ONLINE_PROVIDER } from '../../../shared/constants.js';
 
-const yooKassa = new YooKassa({
+const yooKassaCheckout = new YooCheckout({
     shopId: config.yooKassaShopId,
     secretKey: config.yooKassaSecretKey
 });
@@ -24,9 +24,6 @@ export const createYooKassaPayment = async ({
 }) => {
     const payload = {
         payment_token: paymentToken,
-        payment_method_data: {
-            type: 'bank_card'
-        },
         amount: {
             value: amount.toFixed(2),
             currency
@@ -43,20 +40,19 @@ export const createYooKassaPayment = async ({
             provider: provider,
             amount
         },
-        capture: true,
-        test: config.yooKassaTest === 'true'
+        capture: true
     };
 
     const idempotenceKey = `payment-${randomUUID()}`;
 
     try {
-        const payment = await yooKassa.createPayment(payload, idempotenceKey);
-        
+        const payment = await yooKassaCheckout.createPayment(payload, idempotenceKey);
+
         console.log(payment);
 
         return {
             paymentId: payment.id,
-            confirmationUrl: payment.confirmation?.confirmation_url,
+            confirmationUrl: payment.confirmation?.confirmation_url || null,
             error: null
         };
     } catch (err) {
@@ -91,9 +87,8 @@ export const createYooKassaRefunds = async (refundTasks, params) => {
             }
         };
 
-        const idempotenceKey = `refund-${orderId}-${originalPaymentId}`;
+        const refund = await yooKassaCheckout.createRefund(payload);
 
-        const refund = await yooKassa.createRefund(payload, idempotenceKey);
         return refund.id;
     });
 
@@ -148,11 +143,8 @@ export const checkYooKassaIp = (req) => {
 
 export const verifyYooKassaWebhookAuthenticity = (req) => {
     const isIpValid = checkYooKassaIp(req);
-
-    console.log('isIpValid:', isIpValid);
-
     if (!isIpValid) log.warn('YooKassa webhook: IP вне белого списка');
-    return config.env === 'production' ? isIpValid : true; 
+    return isIpValid; 
 };
 
 export const normalizeYooKassaWebhook = (payload) => {
@@ -198,7 +190,7 @@ export const fetchYooKassaExternalTransactions = async (stuckDbOrders) => {
     );
 
     // Параметры запроса списков в YooKassa по умолчанию
-    const yooKassaParams = { 'created_at.gte': searchStartTimeISO, limit: 100 };
+    const yooKassaParams = { 'created_at_gte': searchStartTimeISO, limit: 100 };
     
     // Получение списков оплат и возвратов от YooKassa с использование пагинации по курсору
     let allExternalTransactions = [];
@@ -211,11 +203,17 @@ export const fetchYooKassaExternalTransactions = async (stuckDbOrders) => {
         // Параллельные запросы оплат и возвратов в YooKassa
         const [paymentsResponse, refundsResponse] = await Promise.all([
             isFetchingPayments 
-                ? yooKassa.getPaymentList({ ...yooKassaParams, cursor: paymentsNextCursor }) 
-                : { items: [] },
+                ? yooKassaCheckout.getPaymentList({
+                    ...yooKassaParams,
+                    ...(paymentsNextCursor && { cursor: paymentsNextCursor })
+                }) 
+                : Promise.resolve({ items: [] }),
             isFetchingRefunds 
-                ? yooKassa.getRefundList({ ...yooKassaParams, cursor: refundsNextCursor }) 
-                : { items: [] }
+                ? yooKassaCheckout.getRefundList({
+                    ...yooKassaParams,
+                    ...(refundsNextCursor && { cursor: refundsNextCursor })
+                }) 
+                : Promise.resolve({ items: [] })
         ]);
         
         // Заполнение массива транзакций
@@ -235,7 +233,7 @@ export const fetchYooKassaExternalTransactions = async (stuckDbOrders) => {
         // Обновление флагов запросов оплат и возвратов в зависимости от наличия курсора
         isFetchingPayments = !!paymentsNextCursor;
         isFetchingRefunds = !!refundsNextCursor;
-    } while (paymentsNextCursor || refundsNextCursor);
+    } while (isFetchingPayments || isFetchingRefunds);
 
     return allExternalTransactions;
 };
@@ -252,5 +250,3 @@ export const normalizeYooKassaExternalTransaction = (tx) => ({
     orderId: tx.metadata?.orderId, // orderId из metadata
     rawTransaction: tx
 });
-
-export default yooKassa;

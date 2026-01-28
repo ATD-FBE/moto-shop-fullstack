@@ -34,8 +34,8 @@ export const startInitOnlineTransactionCleaner = () => {
     log.info(`${LOG_CTX} Очистка зависших онлайн-транзакций в заказах запущена`);
 
     cron.schedule(
-        //'*/1 * * * *', // Тест каждую минуту
-        `*/${expirationMinutes} * * * *`, // Проверка каждые expirationMinutes минут
+        '*/1 * * * *', // Тест каждую минуту
+        //`*/${expirationMinutes} * * * *`, // Проверка каждые expirationMinutes минут
         async () => {
             const now = Date.now();
             const expirationTime = new Date(now - ONLINE_TRANSACTION_INIT_EXPIRATION);
@@ -49,8 +49,6 @@ export const startInitOnlineTransactionCleaner = () => {
                     'financials.currentOnlineTransaction.status': ONLINE_TRANSACTION_STATUS.INIT,
                     'financials.currentOnlineTransaction.startedAt': { $lte: expirationTime }
                 });
-
-                console.log(stuckDbOrders);
 
                 if (stuckDbOrders.length === 0) return;
 
@@ -71,13 +69,9 @@ export const startInitOnlineTransactionCleaner = () => {
                         if (normalizedTx) allNormalizedTransactions.push(normalizedTx);
                     });
                 }
-
-                console.log(allNormalizedTransactions);
             
                 // Создание карты транзакций по ID заказа, где значение - массив всех транзакций для заказа
                 const orderTransactionsMap = createOrderTransactionsMap(allNormalizedTransactions);
-
-                console.log(orderTransactionsMap);
                 
                 // Обработка каждого заказа из списка зависших
                 for (const dbOrder of stuckDbOrders) {
@@ -86,16 +80,28 @@ export const startInitOnlineTransactionCleaner = () => {
                     try {
                         const foundTransactions = orderTransactionsMap.get(orderId);
 
-                        // Транзакции не найдены => удаление данных онлайн транзакции
+                        // Транзакции не найдены => удаление данных онлайн транзакции и SSE-сообщ. админам
                         if (!foundTransactions || !foundTransactions.length) {
-                            await clearOrderOnlineTransaction(orderId);
+                            const clearedTransactionCount = await clearOrderOnlineTransaction(orderId);
+
+                            if (clearedTransactionCount > 0) {
+                                const orderPatches = [{
+                                    path: orderDotNotationMap.currentOnlineTransaction,
+                                    value: undefined
+                                }];
+                                const updatedOrderData = { orderPatches };
+    
+                                const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };
+                                sseOrderManagement.sendToAllClients(sseMessageData);
+                            }
+
                             continue;
                         }
 
                         // Транзакции найдены => обработка всех транзакций пачкой
                         await processStuckTransactionGroup(orderId, foundTransactions);
                     } catch (orderErr) {
-                        log.error(`${LOG_CTX} Ошибка обработки заказа ${orderId}:`, orderErr);
+                        log.error(`${LOG_CTX} Ошибка обработки заказа (ID: ${orderId}):`, orderErr);
                     }
                 };
                 
@@ -260,10 +266,10 @@ const processStuckTransactionGroup = async (orderId, transactionGroup) => {
         const orderPatches = [
             { path: orderDotNotationMap.financialsState, value: updatedDbOrder.financials.state },
             { path: orderDotNotationMap.totalPaid, value: updatedDbOrder.financials.totalPaid },
-            { path: orderDotNotationMap.totalRefunded, value: updatedDbOrder.financials.totalRefunded }
+            { path: orderDotNotationMap.totalRefunded, value: updatedDbOrder.financials.totalRefunded },
+            { path: orderDotNotationMap.eventHistory, value: updatedDbOrder.financials.eventHistory }
         ];
-        const newFinancialsEventEntry = updatedDbOrder.financials.eventHistory.at(-1).toObject();
-        const updatedOrderData = { orderPatches, newFinancialsEventEntry };
+        const updatedOrderData = { orderPatches };
 
         return { shouldClearTransaction: false, updatedOrderData };
     });

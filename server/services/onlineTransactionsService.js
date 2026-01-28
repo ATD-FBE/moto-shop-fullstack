@@ -9,12 +9,15 @@ import {
 import { CARD_ONLINE_PROVIDER } from '../../shared/constants.js';
 
 export const detectWebhookProvider = (req) => {
-    let provider;
+    const headers = req.headers;
+    const userAgent = headers['user-agent'] || '';
 
-    if (req.headers['x-request-signature']) provider = CARD_ONLINE_PROVIDER.YOOKASSA
-    else provider = null;
+    // ЮKassa
+    if (headers['signature'] || headers['x-request-signature'] || userAgent.includes('AHC')) {
+        return CARD_ONLINE_PROVIDER.YOOKASSA;
+    }
 
-    return provider;
+    return null;
 };
 
 const providerMap = {

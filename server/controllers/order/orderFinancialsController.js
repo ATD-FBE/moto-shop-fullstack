@@ -28,6 +28,7 @@ import safeSendResponse from '../../utils/safeSendResponse.js';
 import { isEqualCurrency, getLastFinancialsEventEntry } from '../../../shared/commonHelpers.js';
 import { calculateOrderFinancials, getOrderCardRefundStats } from '../../../shared/calculations.js';
 import {
+    ORDER_MODEL_TYPE,
     PAYMENT_METHOD,
     OFFLINE_PAYMENT_METHODS,
     ONLINE_PAYMENT_METHODS,
@@ -116,7 +117,7 @@ export const handleOrderFinancialsEventVoidRequest = async (req, res, next) => {
             const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
 
             if (!dbOrder) {
-                return safeSendResponse(req, res, 404, { message: `Заказ ${orderLbl} не найден` });
+                throw createAppError(404, `Заказ ${orderLbl} не найден`);
             }
 
             const financialsEventHistory = dbOrder.financials.eventHistory;
@@ -127,21 +128,23 @@ export const handleOrderFinancialsEventVoidRequest = async (req, res, next) => {
             const eventLbl = `(ID: ${eventId}${targetFinEvent ? `, событие: ${targetFinEvent}` : ''})`;
 
             if (!targetFinancialsEventEntry) {
-                return safeSendResponse(req, res, 404, {
-                    message: `Запись ${eventLbl} в истории финансов заказа ${orderLbl} не найдена`
-                });
+                throw createAppError(
+                    404,
+                    `Запись ${eventLbl} в истории финансов заказа ${orderLbl} не найдена`
+                );
             }
             if (targetFinancialsEventEntry.voided?.flag) {
-                return safeSendResponse(req, res, 409, {
-                    message: `Запись ${eventLbl} в истории финансов заказа ${orderLbl} уже аннулирована`
-                });
+                throw createAppError(
+                    409,
+                    `Запись ${eventLbl} в истории финансов заказа ${orderLbl} уже аннулирована`
+                );
             }
             if (!SUCCESSFUL_FINANCIALS_EVENTS.includes(targetFinEvent)) {
-                return safeSendResponse(req, res, 409, {
-                    message:
-                        `Запись ${eventLbl} в истории финансов заказа ${orderLbl} ` +
-                        'фиксирует неуспешную попытку и не подлежит аннулированию'
-                });
+                throw createAppError(
+                    409,
+                    `Запись ${eventLbl} в истории финансов заказа ${orderLbl} ` +
+                    'фиксирует неуспешную попытку и не подлежит аннулированию'
+                );
             }
 
             const method = targetFinancialsEventEntry.action.method;
@@ -149,11 +152,11 @@ export const handleOrderFinancialsEventVoidRequest = async (req, res, next) => {
             const isOnlineMethod = onlineMethods.includes(method);
 
             if (isOnlineMethod) {
-                return safeSendResponse(req, res, 409, {
-                    message:
-                        `Запись ${eventLbl} в истории финансов заказа ${orderLbl} ` +
-                        'зафиксирована платёжной системой и не подлежит аннулированию'
-                });
+                throw createAppError(
+                    409,
+                    `Запись ${eventLbl} в истории финансов заказа ${orderLbl} ` +
+                    'зафиксирована платёжной системой и не подлежит аннулированию'
+                );
             }
 
             // Получение текущих значений
@@ -247,7 +250,10 @@ export const handleOrderFinancialsEventVoidRequest = async (req, res, next) => {
             message: `Финансовая запись ${eventLbl} заказа ${orderLbl} успешно аннулирована`
         });
     } catch (err) {
-        // Обработка ошибок валидации полей при сохранении в MongoDB
+        if (err.isAppError) {
+            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+        }
+
         if (err.name === 'ValidationError') {
             const { unknownFieldError, fieldErrors } = parseValidationErrors(err, 'financials');
             if (unknownFieldError) return next(unknownFieldError);
@@ -709,12 +715,16 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
 
         // Атомарный апдейт заказа со статусом ожидания создания платежа через YooKassa
         let updatedDbOrder = await Order.findOneAndUpdate(
-            { _id: orderId, 'financials.currentOnlineTransaction': { $exists: false } },
+            {
+                _id: orderId,
+                _modelType: ORDER_MODEL_TYPE.FINAL,
+                'financials.currentOnlineTransaction': { $exists: false }
+            },
             {
                 $set: {
                     'financials.currentOnlineTransaction': {
                         type: TRANSACTION_TYPE.PAYMENT,
-                        providers: [provider.toUpperCase()],
+                        providers: [provider],
                         status: ONLINE_TRANSACTION_STATUS.INIT,
                         amount: amountNum,
                         startedAt: new Date()
@@ -745,8 +755,8 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
             paymentToken,
             amount: amountNum,
             currency: 'RUB',
-            returnUrl: getCustomerOrderDetailsUrl(orderNumber, orderId),
-            description: `Оплата заказа ${orderLbl}`,
+            returnUrl: getCustomerOrderDetailsUrl(orderNumber, orderId) + '?t=true',
+            description: `[${new Date().getTime()}] Оплата заказа ${orderLbl} для магазина "Мото-Магазин"`,
             orderId,
             orderNumber,
             customerId: updatedDbOrder.customerId.toString(),
@@ -758,14 +768,19 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
             log.error(`Ошибка создания транзакции оплаты для заказа ${orderLbl}:`, paymentResult.error);
 
             // Откат создания данных онлайн-транзакции в заказе
-            await clearOrderOnlineTransaction(orderId);
+            const clearedTransactionCount = await clearOrderOnlineTransaction(orderId);
 
             // Формирование и отправка SSE-сообщения с удалёнными данными по онлайн-транзакции
-            const orderPatches = [{ path: orderDotNotationMap.currentOnlineTransaction, value: undefined }];
-            const updatedOrderData = { orderPatches };
-
-            const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };
-            sseOrderManagement.sendToAllClients(sseMessageData);
+            if (clearedTransactionCount > 0) {
+                const orderPatches = [{
+                    path: orderDotNotationMap.currentOnlineTransaction,
+                    value: undefined
+                }];
+                const updatedOrderData = { orderPatches };
+    
+                const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };
+                sseOrderManagement.sendToAllClients(sseMessageData);
+            }
 
             return safeSendResponse(req, res, 500, {
                 message: `По заказу ${orderLbl} онлайн оплата не создана`
@@ -774,7 +789,11 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
 
         // Атомарный апдейт заказа с обновлёнными данными об онлайн-оплате
         updatedDbOrder = await Order.findOneAndUpdate(
-            { _id: orderId, 'financials.currentOnlineTransaction.status': ONLINE_TRANSACTION_STATUS.INIT },
+            {
+                _id: orderId,
+                _modelType: ORDER_MODEL_TYPE.FINAL,
+                'financials.currentOnlineTransaction.status': ONLINE_TRANSACTION_STATUS.INIT
+            },
             {
                 $set: {
                     'financials.currentOnlineTransaction.status': ONLINE_TRANSACTION_STATUS.PROCESSING,
@@ -811,7 +830,7 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
     }
 };
 
-/// Создание возвратов для банковских карт заказа через YooKassa ///
+/// Создание возвратов для банковских карт заказа ///
 export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
     const orderId = req.params.orderId;
 
@@ -899,12 +918,16 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
 
         // Атомарный апдейт заказа со статусом подготовки создания онлайн-транзакции
         let updatedDbOrder = await Order.findOneAndUpdate(
-            { _id: orderId, 'financials.currentOnlineTransaction': { $exists: false } },
+            {
+                _id: orderId,
+                _modelType: ORDER_MODEL_TYPE.FINAL,
+                'financials.currentOnlineTransaction': { $exists: false }
+            },
             {
                 $set: {
                     'financials.currentOnlineTransaction': {
                         type: TRANSACTION_TYPE.REFUND,
-                        providers: refundProviders.map(provider => provider.toUpperCase()),
+                        providers: refundProviders,
                         status: ONLINE_TRANSACTION_STATUS.INIT,
                         amount: totalRefundAmount,
                         startedAt: new Date()
@@ -944,7 +967,7 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
         // Создание онлайн-возвратов по каждому провайдеру
         const refundParams = {
             currency: 'RUB',
-            description: `Возврат средств по заказу ${orderLbl}`,
+            description: `Возврат средств по заказу ${orderLbl} для магазина "Мото-Магазин"`,
             orderId,
             orderNumber: updatedDbOrder.orderNumber,
             customerId: updatedDbOrder.customerId.toString()
@@ -967,14 +990,19 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
         // Обработка ситуации, когда не создалось ни одного успешного возврата
         if (!allRefundIds.length) {
             // Откат создания данных онлайн-транзакции в заказе
-            await clearOrderOnlineTransaction(orderId);
+            const clearedTransactionCount = await clearOrderOnlineTransaction(orderId);
 
             // Формирование и отправка SSE-сообщения с удалёнными данными по онлайн-транзакции
-            const orderPatches = [{ path: orderDotNotationMap.currentOnlineTransaction, value: undefined }];
-            const updatedOrderData = { orderPatches };
-
-            const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };
-            sseOrderManagement.sendToAllClients(sseMessageData);
+            if (clearedTransactionCount > 0) {
+                const orderPatches = [{
+                    path: orderDotNotationMap.currentOnlineTransaction,
+                    value: undefined
+                }];
+                const updatedOrderData = { orderPatches };
+    
+                const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };
+                sseOrderManagement.sendToAllClients(sseMessageData);
+            }
 
             return safeSendResponse(req, res, 500, {
                 message: `По заказу ${orderLbl} не создано ни одного возврата`
@@ -983,7 +1011,11 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
 
         // Атомарный апдейт заказа с обновлёнными данными об онлайн-транзакции
         updatedDbOrder = await Order.findOneAndUpdate(
-            { _id: orderId, 'financials.currentOnlineTransaction.status': ONLINE_TRANSACTION_STATUS.INIT },
+            {
+                _id: orderId,
+                _modelType: ORDER_MODEL_TYPE.FINAL,
+                'financials.currentOnlineTransaction.status': ONLINE_TRANSACTION_STATUS.INIT
+            },
             {
                 $set: {
                     'financials.currentOnlineTransaction.status': ONLINE_TRANSACTION_STATUS.PROCESSING,
@@ -1018,24 +1050,28 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
 
 /// Обработка уведомления (вебхука) от YooKassa об онлайн-оплате или возврате на карту ///
 export const handleWebhook = async (req, res, next) => {
-    console.log(req.body);
-
     // Определение провайдера по заголовку
     const provider = detectWebhookProvider(req);
+
+    console.log('provider:', provider);
 
     if (!provider) {
         return safeSendResponse(req, res, 200, { message: 'Неизвестный провайдер' });
     }
 
     // Проверка подписи заголовка
-    const isValidSignature = verifyWebhookAuthenticity(provider, req);
+    const isValidAuthenticity = verifyWebhookAuthenticity(provider, req);
 
-    if (!isValidSignature) {
+    console.log('isValidAuthenticity:', isValidAuthenticity);
+
+    if (!isValidAuthenticity) {
         return safeSendResponse(req, res, 200, { message: '' });
     }
 
     // Нормализация данных в теле запроса
     const normalizedWebhook = normalizeWebhook(provider, req.body);
+
+    console.log('normalizedWebhook:', normalizedWebhook);
 
     if (!normalizedWebhook) {
         return safeSendResponse(req, res, 200, { message: 'Игнорирование события' });
@@ -1110,6 +1146,7 @@ export const handleWebhook = async (req, res, next) => {
                 financials,
                 amount,
                 method,
+                provider,
                 transactionId,
                 originalPaymentId,
                 markAsFailed,

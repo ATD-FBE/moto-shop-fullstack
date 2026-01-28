@@ -9,9 +9,10 @@ import {
     STORAGE_URL_PATH
 } from '../config/paths.js';
 import {
-    PRODUCT_THUMBNAIL_PRESETS,
     PRODUCT_BRAND_NEW_THRESHOLD_MS,
     PRODUCT_RESTOCK_THRESHOLD_MS,
+    PRODUCT_THUMBNAIL_PRESETS,
+    ORDER_MODEL_TYPE,
     ORDER_STATUS
 } from '../../shared/constants.js';
 import { calculateOrderTotals } from '../../shared/calculations.js';
@@ -147,7 +148,7 @@ export const redistributeProductProportionallyInDraftOrders = async (productId, 
     // Сохранение изменений в заказах через формирование bulk-операций
     const orderBulkOps = filteredTempResults.map(req => ({
         updateOne: {
-            filter: { _id: req.orderId },
+            filter: { _id: req.orderId, _modelType: ORDER_MODEL_TYPE.DRAFT },
             update: { 
                 $set: {
                     'items.$[item].quantity': req.allocated,
@@ -159,7 +160,7 @@ export const redistributeProductProportionallyInDraftOrders = async (productId, 
     }));
 
     if (orderBulkOps.length > 0) {
-        await Order.collection.bulkWrite(orderBulkOps, { session });
+        await Order.bulkWrite(orderBulkOps, { session });
     }
 
     // Сохранение изменений в корзинах клиентов через формирование bulk-операций
@@ -189,7 +190,7 @@ export const redistributeProductProportionallyInDraftOrders = async (productId, 
     }).filter(Boolean);
 
     if (userBulkOps.length > 0) {
-        await User.collection.bulkWrite(userBulkOps, { session });
+        await User.bulkWrite(userBulkOps, { session });
     }
 };
 

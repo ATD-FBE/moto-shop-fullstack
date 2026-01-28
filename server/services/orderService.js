@@ -10,7 +10,9 @@ import { getLastFinancialsEventEntry, isEqualCurrency } from '../../shared/commo
 import { fieldErrorMessages } from '../../shared/validation.js';
 import {
     COMPANY_DETAILS,
+    ORDER_MODEL_TYPE,
     DELIVERY_METHOD,
+    ONLINE_TRANSACTION_STATUS,
     ORDER_STATUS,
     ORDER_STATUS_CONFIG,
     FINANCIALS_STATE,
@@ -50,6 +52,7 @@ export const orderDotNotationMap = {
     financialsState: 'financials.state',
     totalPaid: 'financials.totalPaid',
     totalRefunded: 'financials.totalRefunded',
+    eventHistory: 'financials.eventHistory',
     currentOnlineTransaction: 'financials.currentOnlineTransaction',
   
     // Notes
@@ -569,9 +572,13 @@ export const updateCustomerTotalSpent = async (customerId, amountDelta, session 
 };
 
 export const clearOrderOnlineTransaction = async (orderId) => {
-    const result = await Order.updateOne(
-        { _id: orderId, 'financials.currentOnlineTransaction.status': ONLINE_TRANSACTION_STATUS.INIT },
+    const updateResult = await Order.updateOne(
+        {
+            _id: orderId,
+            _modelType: ORDER_MODEL_TYPE.FINAL,
+            'financials.currentOnlineTransaction.status': ONLINE_TRANSACTION_STATUS.INIT
+        },
         { $unset: { 'financials.currentOnlineTransaction': '' } }
     );
-    return result.modifiedCount;
+    return updateResult.modifiedCount;
 };

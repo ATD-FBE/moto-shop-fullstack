@@ -238,7 +238,7 @@ export const sendOrderOfflineRefundApplyRequest = (orderId, requestData) => asyn
     return await apiResponse(response, { errorPrefix });
 };
 
-/// Создание онлайн платежа для банковской карты через YooKassa ///
+/// Создание онлайн платежа для банковской карты ///
 export const sendOrderOnlinePaymentCreateRequest = (orderId, requestData) => async (dispatch) => {
     const url = `/api/orders/${orderId}/payment/online`;
     const options = {
@@ -258,7 +258,7 @@ export const sendOrderOnlinePaymentCreateRequest = (orderId, requestData) => asy
     return await apiResponse(response, { errorPrefix });
 };
 
-/// Создание возвратов для банковских карт заказа через YooKassa ///
+/// Создание возвратов для банковских карт ///
 export const sendOrderOnlineRefundsCreateRequest = (orderId) => async (dispatch) => {
     const url = `/api/orders/${orderId}/refund/online/full`;
     const options = { method: 'POST' };

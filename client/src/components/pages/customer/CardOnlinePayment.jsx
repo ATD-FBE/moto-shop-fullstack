@@ -50,7 +50,7 @@ const getSubmitStates = () => {
         [NETWORK]: { ...base[NETWORK], submitBtnLabel: actionLabel },
         [SUCCESS]: {
             ...base[SUCCESS],
-            mainMessage: 'Заказ оплачен!',
+            mainMessage: 'Платёж создан и обрабатывается!',
             addMessage: 'Вы будете перенаправлены на страницу деталей заказа.',
             submitBtnLabel: 'Перенаправление...'
         }

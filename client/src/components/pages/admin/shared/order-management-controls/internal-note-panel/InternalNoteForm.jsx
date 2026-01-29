@@ -137,7 +137,7 @@ export default function InternalNoteForm({ orderId, internalNote }) {
                     uiStatus: isValid ? FIELD_UI_STATUS.VALID : FIELD_UI_STATUS.INVALID,
                     error: isValid
                         ? ''
-                        : fieldErrorMessages.order[name]?.default || fieldErrorMessages.DEFAULT
+                        : fieldErrorMessages.order[name].default || fieldErrorMessages.DEFAULT
                 };
 
                 if (isValid) {

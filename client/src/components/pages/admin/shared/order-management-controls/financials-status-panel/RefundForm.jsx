@@ -126,6 +126,17 @@ const fieldConfigs = [
         canApply: ({ method }) => method === REFUND_METHOD.BANK_TRANSFER
     },
     {
+        name: 'failureReason',
+        label: 'Причина отказа (опционально)',
+        elem: 'input',
+        type: 'text',
+        placeholder: 'Укажите причину отмены перевода',
+        autoComplete: 'off',
+        trim: true,
+        optional: true,
+        canApply: ({ method, markAsFailed }) => method === REFUND_METHOD.BANK_TRANSFER && markAsFailed
+    },
+    {
         name: 'externalReference',
         label: 'Данные источника (опционально)',
         elem: 'input',
@@ -177,21 +188,21 @@ export default function RefundForm({
     const isUnmountedRef = useRef(false);
     const dispatch = useDispatch();
 
-    const markAsFailed = fieldsState.markAsFailed.value;
     const method = fieldsState.method.value;
+    const markAsFailed = fieldsState.markAsFailed.value;
 
-    const { submitStates, lockedStatuses } = useMemo(
-        () => getSubmitStates(markAsFailed),
-        [markAsFailed]
-    );
     const applicabilityMap = useMemo(
         () => Object.fromEntries(
             fieldConfigs.map(cfg => [
                 cfg.name,
-                typeof cfg.canApply === 'function' ? cfg.canApply({ method }) : true
+                typeof cfg.canApply === 'function' ? cfg.canApply({ method, markAsFailed }) : true
             ])
         ),
-        [method]
+        [method, markAsFailed]
+    );
+    const { submitStates, lockedStatuses } = useMemo(
+        () => getSubmitStates(markAsFailed),
+        [markAsFailed]
     );
 
     const isCancelledOrder = orderStatus === ORDER_STATUS.CANCELLED;
@@ -208,6 +219,7 @@ export default function RefundForm({
             amount: 0,
             transactionId: '',
             markAsFailed: false,
+            failureReason: '',
             externalReference: ''
         };
     
@@ -275,12 +287,14 @@ export default function RefundForm({
                     uiStatus: isValid ? FIELD_UI_STATUS.VALID : FIELD_UI_STATUS.INVALID,
                     error: isValid
                         ? ''
-                        : fieldErrorMessages.refund[name]?.default || fieldErrorMessages.DEFAULT
+                        : fieldErrorMessages.refund[name].default || fieldErrorMessages.DEFAULT
                 };
 
                 if (isValid) {
-                    acc.formFields[name] = normalizedValue;
-                    acc.changedFields.push(name);
+                    if (normalizedValue !== '') {
+                        acc.formFields[name] = normalizedValue;
+                        acc.changedFields.push(name);
+                    }
                 } else {
                     acc.allValid = false;
                 }

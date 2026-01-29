@@ -12,7 +12,8 @@ import {
     COMPANY_DETAILS,
     ORDER_MODEL_TYPE,
     DELIVERY_METHOD,
-    ONLINE_TRANSACTION_STATUS,
+    PAYMENT_METHOD,
+    REFUND_METHOD,
     ORDER_STATUS,
     ORDER_STATUS_CONFIG,
     FINANCIALS_STATE,
@@ -491,11 +492,13 @@ export const applyOrderFinancials = (dbOrder, {
     financials,
     amount,
     method,
-    provider,
-    transactionId,
-    originalPaymentId,
+    provider, // Для онлайн-оплаты/возврата и банковского перевода оффлайн
+    transactionId, // Для онлайн-оплаты/возврата и банковского перевода оффлайн
+    originalPaymentId, // Для онлайн возврата на карту
     markAsFailed,
-    externalReference,
+    failureReason, // Для онлайн-оплаты/возврата и банковского перевода оффлайн
+    externalReference, // Для оффлайн возврата на карту
+    createdAt, // Для онлайн-оплаты/возврата
     actor
 }) => {
     const isPayment = transactionType === TRANSACTION_TYPE.PAYMENT;
@@ -525,6 +528,9 @@ export const applyOrderFinancials = (dbOrder, {
     }
 
     const newNetPaid = newTotalPaid - newTotalRefunded;
+    const isBankTransfer = [PAYMENT_METHOD.BANK_TRANSFER, REFUND_METHOD.BANK_TRANSFER].includes(method);
+    const isCardOnline = [PAYMENT_METHOD.CARD_ONLINE, REFUND_METHOD.CARD_ONLINE].includes(method);
+    const isCardOffline = [REFUND_METHOD.CARD_OFFLINE].includes(method);
     const now = new Date();
 
     dbOrder.lastActivityAt = now;
@@ -538,9 +544,19 @@ export const applyOrderFinancials = (dbOrder, {
     );
     dbOrder.financials.eventHistory.push({
         event: financialsEvent,
-        action: { method, amount, provider, transactionId, originalPaymentId, externalReference },
+        action: {
+            method,
+            amount,
+            ...((isBankTransfer || isCardOnline) && {
+                provider,
+                transactionId,
+                ...(markAsFailed && { failureReason })
+            }),
+            ...(isCardOnline && isRefund && { originalPaymentId }),
+            ...(isCardOffline && isRefund && { externalReference })
+        },
         changedBy: { id: actor._id, name: actor.name, role: actor.role },
-        changedAt: now
+        changedAt: createdAt || now
     });
 
     return { newNetPaid };
@@ -571,14 +587,15 @@ export const updateCustomerTotalSpent = async (customerId, amountDelta, session 
     }
 };
 
-export const clearOrderOnlineTransaction = async (orderId) => {
+export const clearOrderOnlineTransaction = async (orderId, stuckStatus) => {
     const updateResult = await Order.updateOne(
         {
             _id: orderId,
             _modelType: ORDER_MODEL_TYPE.FINAL,
-            'financials.currentOnlineTransaction.status': ONLINE_TRANSACTION_STATUS.INIT
+            'financials.currentOnlineTransaction.status': stuckStatus
         },
         { $unset: { 'financials.currentOnlineTransaction': '' } }
     );
+
     return updateResult.modifiedCount;
 };

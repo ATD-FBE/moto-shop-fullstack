@@ -98,7 +98,8 @@ export const formatFinancialsEventHistoryLogs = (eventHistory) => {
             ...(action.provider ? [`Провайдер: ${providerLbl}`] : []),
             ...(action.transactionId ? [`ID транзакции: ${action.transactionId}`] : []),
             ...(action.originalPaymentId ? [`ID исходного платежа: ${action.originalPaymentId}`] : []),
-            ...(action.externalReference ? [`Источник: ${action.externalReference}`] : [])
+            ...(action.failureReason ? [`Причина отказа: "${action.failureReason}"`] : []),
+            ...(action.externalReference ? [`Источник: ${action.externalReference}`] : []),
         ];
 
         line += ` — Детали: { ${details.join('; ')} }`;

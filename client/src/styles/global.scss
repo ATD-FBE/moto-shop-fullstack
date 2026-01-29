@@ -2629,7 +2629,7 @@ mark.highlighted-text {
                                 justify-content: space-between;
                                 align-items: center;
                                 gap: 8px;
-                                margin-bottom: 26px;
+                                padding-bottom: 26px;
 
                                 &.input-number-elem {
                                     .form-entry-field {
@@ -2713,7 +2713,7 @@ mark.highlighted-text {
                                 justify-content: space-between;
                                 align-items: center;
                                 gap: 8px;
-                                margin-bottom: 26px;
+                                padding-bottom: 26px;
 
                                 &.textarea-elem {
                                     align-items: flex-start;
@@ -4898,7 +4898,7 @@ main {
                 white-space: nowrap;
     
                 &:not(:first-of-type):not(:last-of-type) {
-                    margin: 42px 0;
+                    padding: 42px 0;
                 }
 
                 .form-entry-label {
@@ -5105,7 +5105,7 @@ main {
                                     justify-content: space-between;
                                     align-items: center;
                                     gap: 8px;
-                                    margin-bottom: 26px;
+                                    padding-bottom: 26px;
         
                                     &.input-number-elem {
                                         .form-entry-field {
@@ -5365,7 +5365,7 @@ main {
                     justify-content: space-between;
                     align-items: center;
                     gap: 8px;
-                    margin-bottom: 26px;
+                    padding-bottom: 26px;
 
                     .form-entry-checkbox-label {
                         display: flex;
@@ -5505,7 +5505,7 @@ main {
                             justify-content: space-between;
                             align-items: center;
                             gap: 8px;
-                            margin-bottom: 26px;
+                            padding-bottom: 26px;
             
                             &.textarea-elem {
                                 align-items: flex-start;
@@ -5926,7 +5926,7 @@ main {
                     justify-content: space-between;
                     align-items: center;
                     gap: 8px;
-                    margin-bottom: 26px;
+                    padding-bottom: 26px;
     
                     &.textarea-elem {
                         align-items: flex-start;
@@ -6107,7 +6107,7 @@ main {
                     justify-content: space-between;
                     align-items: center;
                     min-height: $form-field-base-height;
-                    margin-bottom: 4px;
+                    padding-bottom: 4px;
     
                     .form-col  {
                         &.col-left {
@@ -6192,7 +6192,7 @@ main {
                         align-items: center;
                         gap: 8px;
                         width: 100%;
-                        margin-bottom: 4px;
+                        padding-bottom: 4px;
                         
                         .form-entry-label {
                             width: 35%;
@@ -6809,10 +6809,10 @@ main {
 
                             @if $customer-comment {
                                 align-items: flex-start;
-                                margin-bottom: null;
+                                padding-bottom: null;
                             } @else {
                                 align-items: center;
-                                margin-bottom: 26px;
+                                padding-bottom: 26px;
                             }
                             
                             .form-entry-label {
@@ -7495,7 +7495,7 @@ main {
                                 justify-content: space-between;
                                 align-items: center;
                                 gap: 8px;
-                                margin-bottom: 26px;
+                                padding-bottom: 26px;
 
                                 &.textarea-elem {
                                     align-items: flex-start;
@@ -7617,7 +7617,7 @@ main {
                 justify-content: space-between;
                 align-items: center;
                 gap: 8px;
-                margin-bottom: 26px;
+                padding-bottom: 26px;
 
                 .form-entry-label {
                     width: 35%;
@@ -8540,7 +8540,7 @@ main {
                 .form-group {
                     .form-group-entries {
                         .form-entry {
-                            margin-bottom: 26px;
+                            padding-bottom: 26px;
 
                             .form-entry-field {
                                 .invalid-message {
@@ -9119,7 +9119,7 @@ main {
             .form-body {
                 .form-entry {
                     &:not(:first-of-type):not(:last-of-type) {
-                        margin: 52px 0;
+                        padding: 52px 0;
                     }
                     .form-entry-field {
                         width: 70%;
@@ -9174,7 +9174,7 @@ main {
                     .notification-form {
                         .form-body {
                             .form-entry {
-                                margin-bottom: 34px;
+                                padding-bottom: 34px;
     
                                 .form-entry-label {
                                     width: 40%;

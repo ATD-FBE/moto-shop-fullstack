@@ -275,7 +275,7 @@ export default function NotificationEditor({
                     uiStatus: isValid ? FIELD_UI_STATUS.VALID : FIELD_UI_STATUS.INVALID,
                     error: isValid
                         ? ''
-                        : fieldErrorMessages.notification[name]?.default || fieldErrorMessages.DEFAULT
+                        : fieldErrorMessages.notification[name].default || fieldErrorMessages.DEFAULT
                 };
     
                 if (isValid) {

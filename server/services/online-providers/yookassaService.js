@@ -158,6 +158,8 @@ export const normalizeYooKassaWebhook = (payload) => {
     const isRefund = event.startsWith('refund.');
     if (!isPayment && !isRefund) return null;
 
+    const cancellationDetails = webhookObj.cancellation_details;
+
     return {
         provider: CARD_ONLINE_PROVIDER.YOOKASSA,
         transactionType: isPayment ? TRANSACTION_TYPE.PAYMENT : TRANSACTION_TYPE.REFUND,
@@ -165,6 +167,10 @@ export const normalizeYooKassaWebhook = (payload) => {
         originalPaymentId: isRefund ? webhookObj.payment_id : undefined,
         amount: Number(webhookObj.amount?.value),
         markAsFailed: event.endsWith('.canceled'),
+        ...(cancellationDetails && {
+            failureReason: `${cancellationDetails.party}: ${cancellationDetails.reason}`
+        }),
+        createdAt: new Date(webhookObj.created_at),
         orderId: webhookObj.metadata?.orderId,
         rawEventType: event,
         rawPayload: payload
@@ -242,11 +248,15 @@ export const normalizeYooKassaExternalTransaction = (tx) => ({
     provider: CARD_ONLINE_PROVIDER.YOOKASSA,
     transactionType: tx.transactionType, // Получено в fetchYooKassaExternalTransactions
     transactionId: tx.id,
-    originalPaymentId: tx.payment_id, // Для возвратов
+    originalPaymentId: tx.payment_id, // Для возврата
     amount: Number(tx.amount?.value),
     finished: ['succeeded', 'canceled'].includes(tx.status),
     markAsFailed: tx.status === 'canceled',
-    confirmationUrl: tx.confirmation?.confirmation_url,
+    ...(tx.cancellation_details && {
+        failureReason: `${tx.cancellation_details.party}: ${tx.cancellation_details.reason}`
+    }),
+    confirmationUrl: tx.confirmation?.confirmation_url, // Для оплаты
+    createdAt: new Date(tx.created_at),
     orderId: tx.metadata?.orderId, // orderId из metadata
     rawTransaction: tx
 });

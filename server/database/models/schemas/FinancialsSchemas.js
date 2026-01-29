@@ -156,6 +156,10 @@ export const FinalFinancialsSchema = new Schema({
                 type: String,
                 match: validationRules.refund.originalPaymentId
             },
+            failureReason: { // Опционально для банковского перевода и онлайн-транзакций
+                type: String,
+                match: validationRules.financials.failureReason
+            },
             externalReference: { // Опциональные данные по терминалу при возврате на карту вручную
                 type: String,
                 match: validationRules.refund.externalReference

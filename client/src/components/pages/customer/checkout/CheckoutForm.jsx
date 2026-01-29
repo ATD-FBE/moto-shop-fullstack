@@ -504,7 +504,7 @@ export default function CheckoutForm({
                     uiStatus: isValid ? FIELD_UI_STATUS.VALID : FIELD_UI_STATUS.INVALID,
                     error: isValid
                         ? ''
-                        : fieldErrorMessages.checkout[name]?.default || fieldErrorMessages.DEFAULT
+                        : fieldErrorMessages.checkout[name].default || fieldErrorMessages.DEFAULT
                 };
         
                 if (isValid) {

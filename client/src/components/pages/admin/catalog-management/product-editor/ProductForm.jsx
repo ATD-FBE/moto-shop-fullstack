@@ -528,7 +528,7 @@ export default function ProductForm({ uiBlocked, product, allowedCategories, onS
                     uiStatus: isValid ? FIELD_UI_STATUS.VALID : FIELD_UI_STATUS.INVALID,
                     error: isValid
                         ? ''
-                        : fieldErrorMessages.product[name]?.default || fieldErrorMessages.DEFAULT
+                        : fieldErrorMessages.product[name].default || fieldErrorMessages.DEFAULT
                 };
 
                 if (isValid) {

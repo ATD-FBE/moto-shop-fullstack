@@ -267,7 +267,7 @@ export default function CardOnlinePayment() {
                     uiStatus: isValid ? FIELD_UI_STATUS.VALID : FIELD_UI_STATUS.INVALID,
                     error: isValid
                         ? ''
-                        : fieldErrorMessages.payment[name]?.default || fieldErrorMessages.DEFAULT
+                        : fieldErrorMessages.payment[name].default || fieldErrorMessages.DEFAULT
                 };
 
                 if (isValid) {

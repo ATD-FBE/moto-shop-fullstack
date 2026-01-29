@@ -218,7 +218,7 @@ export default function CategoryForm({
                     uiStatus: isValid ? FIELD_UI_STATUS.VALID : FIELD_UI_STATUS.INVALID,
                     error: isValid
                         ? ''
-                        : fieldErrorMessages.category[name]?.default || fieldErrorMessages.DEFAULT
+                        : fieldErrorMessages.category[name].default || fieldErrorMessages.DEFAULT
                 };
         
                 if (isValid) {

@@ -110,6 +110,17 @@ const fieldConfigs = [
         elem: 'checkbox',
         checkboxLabel: 'Отметить платёж как неудачный',
         canApply: ({ method }) => method === PAYMENT_METHOD.BANK_TRANSFER
+    },
+    {
+        name: 'failureReason',
+        label: 'Причина отказа (опционально)',
+        elem: 'input',
+        type: 'text',
+        placeholder: 'Укажите причину отмены перевода',
+        autoComplete: 'off',
+        trim: true,
+        optional: true,
+        canApply: ({ method, markAsFailed }) => method === PAYMENT_METHOD.BANK_TRANSFER && markAsFailed
     }
 ];
 
@@ -152,21 +163,21 @@ export default function PaymentForm({
     const isUnmountedRef = useRef(false);
     const dispatch = useDispatch();
 
-    const markAsFailed = fieldsState.markAsFailed.value;
     const method = fieldsState.method.value;
+    const markAsFailed = fieldsState.markAsFailed.value;
 
-    const { submitStates, lockedStatuses } = useMemo(
-        () => getSubmitStates(markAsFailed),
-        [markAsFailed]
-    );
     const applicabilityMap = useMemo(
         () => Object.fromEntries(
             fieldConfigs.map(cfg => [
                 cfg.name,
-                typeof cfg.canApply === 'function' ? cfg.canApply({ method, orderStatus }) : true
+                typeof cfg.canApply === 'function' ? cfg.canApply({ method, markAsFailed }) : true
             ])
         ),
-        [method, orderStatus]
+        [method, markAsFailed]
+    );
+    const { submitStates, lockedStatuses } = useMemo(
+        () => getSubmitStates(markAsFailed),
+        [markAsFailed]
     );
     
     const isCancelledOrder = orderStatus === ORDER_STATUS.CANCELLED;
@@ -182,7 +193,8 @@ export default function PaymentForm({
             provider: BANK_PROVIDER_OPTIONS[0].value,
             amount: 0,
             transactionId: '',
-            markAsFailed: false
+            markAsFailed: false,
+            failureReason: ''
         };
     
         return Object.fromEntries(
@@ -235,25 +247,28 @@ export default function PaymentForm({
                     return acc;
                 }
 
-                const normalizedValue = fieldConfigMap[name]?.trim ? value.trim() : value;
+                const { trim, optional } = fieldConfigMap[name] ?? {};
+                const normalizedValue = trim ? value.trim() : value;
                 const ruleCheck =
                     typeof validation === 'function'
                         ? validation(normalizedValue)
                         : validation.test(normalizedValue);
 
-                const isValid = ruleCheck;
+                const isValid = optional ? (!normalizedValue || ruleCheck) : ruleCheck;
 
                 acc.fieldStateUpdates[name] = {
                     value: normalizedValue,
                     uiStatus: isValid ? FIELD_UI_STATUS.VALID : FIELD_UI_STATUS.INVALID,
                     error: isValid
                         ? ''
-                        : fieldErrorMessages.payment[name]?.default || fieldErrorMessages.DEFAULT
+                        : fieldErrorMessages.payment[name].default || fieldErrorMessages.DEFAULT
                 };
 
                 if (isValid) {
-                    acc.formFields[name] = normalizedValue;
-                    acc.changedFields.push(name);
+                    if (normalizedValue !== '') {
+                        acc.formFields[name] = normalizedValue;
+                        acc.changedFields.push(name);
+                    }
                 } else {
                     acc.allValid = false;
                 }

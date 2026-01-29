@@ -156,7 +156,7 @@ export default function LoginForm() {
                     uiStatus: isValid ? FIELD_UI_STATUS.VALID : FIELD_UI_STATUS.INVALID,
                     error: isValid
                         ? ''
-                        : fieldErrorMessages.auth[name]?.default || fieldErrorMessages.DEFAULT
+                        : fieldErrorMessages.auth[name].default || fieldErrorMessages.DEFAULT
                 };
         
                 if (isValid) {

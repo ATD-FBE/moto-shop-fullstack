@@ -34,19 +34,18 @@ export const startInitOnlineTransactionCleaner = () => {
     log.info(`${LOG_CTX} Очистка зависших онлайн-транзакций в заказах запущена`);
 
     cron.schedule(
-        '*/1 * * * *', // Тест каждую минуту
-        //`*/${expirationMinutes} * * * *`, // Проверка каждые expirationMinutes минут
+        `*/${expirationMinutes} * * * *`, // Проверка каждые expirationMinutes минут
         async () => {
             const now = Date.now();
             const expirationTime = new Date(now - ONLINE_TRANSACTION_INIT_EXPIRATION);
-
-            console.log('+ cron start');
 
             try {
                 // Поиск зависших транзакций с установленным сроком истечения
                 const stuckDbOrders = await Order.find({
                     currentStatus: { $ne: ORDER_STATUS.DRAFT },
-                    'financials.currentOnlineTransaction.status': ONLINE_TRANSACTION_STATUS.INIT,
+                    'financials.currentOnlineTransaction.status': { 
+                        $in: [ONLINE_TRANSACTION_STATUS.INIT, ONLINE_TRANSACTION_STATUS.PROCESSING] 
+                    },
                     'financials.currentOnlineTransaction.startedAt': { $lte: expirationTime }
                 });
 
@@ -62,8 +61,6 @@ export const startInitOnlineTransactionCleaner = () => {
                     const fetchedTransactions = await fetchExternalTransactions(provider, providerOrders);
                     if (!fetchedTransactions.length) continue;
 
-                    console.log(fetchedTransactions);
-
                     fetchedTransactions.forEach(tx => {
                         const normalizedTx = normalizeExternalTransaction(provider, tx);
                         if (normalizedTx) allNormalizedTransactions.push(normalizedTx);
@@ -76,13 +73,15 @@ export const startInitOnlineTransactionCleaner = () => {
                 // Обработка каждого заказа из списка зависших
                 for (const dbOrder of stuckDbOrders) {
                     const orderId = dbOrder._id.toString();
+                    const stuckOnlineTxStatus = dbOrder.financials.currentOnlineTransaction.status;
                     
                     try {
                         const foundTransactions = orderTransactionsMap.get(orderId);
 
                         // Транзакции не найдены => удаление данных онлайн транзакции и SSE-сообщ. админам
                         if (!foundTransactions || !foundTransactions.length) {
-                            const clearedTransactionCount = await clearOrderOnlineTransaction(orderId);
+                            const clearedTransactionCount =
+                                await clearOrderOnlineTransaction(orderId, stuckOnlineTxStatus);
 
                             if (clearedTransactionCount > 0) {
                                 const orderPatches = [{
@@ -99,7 +98,7 @@ export const startInitOnlineTransactionCleaner = () => {
                         }
 
                         // Транзакции найдены => обработка всех транзакций пачкой
-                        await processStuckTransactionGroup(orderId, foundTransactions);
+                        await processStuckTransactionGroup(orderId, stuckOnlineTxStatus, foundTransactions);
                     } catch (orderErr) {
                         log.error(`${LOG_CTX} Ошибка обработки заказа (ID: ${orderId}):`, orderErr);
                     }
@@ -150,7 +149,7 @@ const createOrderTransactionsMap = (transactions) => {
     return map;
 };
 
-const processStuckTransactionGroup = async (orderId, transactionGroup) => {
+const processStuckTransactionGroup = async (orderId, stuckOnlineTxStatus, transactionGroup) => {
     const { shouldClearTransaction, updatedOrderData } = await runInTransaction(async (session) => {
         // Обновление данных заказа
         const dbOrder = await Order.findById(orderId).session(session);
@@ -158,7 +157,7 @@ const processStuckTransactionGroup = async (orderId, transactionGroup) => {
         // Проверка, не обработан ли заказ к этому времени
         const currentOnlineTx = dbOrder?.financials.currentOnlineTransaction;
 
-        if (!currentOnlineTx || currentOnlineTx.status !== ONLINE_TRANSACTION_STATUS.INIT) {
+        if (!currentOnlineTx || currentOnlineTx.status !== stuckOnlineTxStatus) {
             return { shouldClearTransaction: false, updatedOrderData: null };
         }
         if (dbOrder.currentStatus === ORDER_STATUS.DRAFT) {
@@ -199,7 +198,8 @@ const processStuckTransactionGroup = async (orderId, transactionGroup) => {
 
         for (const finishedTx of finishedTransactions) {
             const {
-                provider, transactionType, transactionId, amount, originalPaymentId, markAsFailed
+                provider, transactionType, transactionId, amount,
+                originalPaymentId, markAsFailed, failureReason, createdAt
             } = finishedTx;
 
             // Проверка критических данных вебхука
@@ -239,6 +239,8 @@ const processStuckTransactionGroup = async (orderId, transactionGroup) => {
                 transactionId,
                 originalPaymentId,
                 markAsFailed,
+                failureReason,
+                createdAt,
                 actor: { name: 'SYSTEM', role: 'system' }
             });
             finalNetPaid = newNetPaid;
@@ -247,6 +249,11 @@ const processStuckTransactionGroup = async (orderId, transactionGroup) => {
             currentOnlineTx.transactionIds =
                 currentOnlineTx.transactionIds.filter(id => id !== transactionId);
         }
+
+        // Сортировка истории финансов по дате изменений
+        dbOrder.financials.eventHistory.sort((eventA, eventB) =>
+            new Date(eventA.changedAt).getTime() - new Date(eventB.changedAt).getTime()
+        );
 
         // Удаление данных онлайн транзакции, если массив ID транзакций в ожидании опустел
         if (!currentOnlineTx.transactionIds.length) {
@@ -262,7 +269,7 @@ const processStuckTransactionGroup = async (orderId, transactionGroup) => {
             await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaidDelta, session, LOG_CTX);
         }
 
-        // Формирование данных для SSE-сообщения (только последняя запись финансовой истории придёт)
+        // Формирование данных для SSE-сообщения
         const orderPatches = [
             { path: orderDotNotationMap.financialsState, value: updatedDbOrder.financials.state },
             { path: orderDotNotationMap.totalPaid, value: updatedDbOrder.financials.totalPaid },
@@ -278,7 +285,7 @@ const processStuckTransactionGroup = async (orderId, transactionGroup) => {
     let clearedTransactionCount = 0;
 
     if (shouldClearTransaction) {
-        clearedTransactionCount = await clearOrderOnlineTransaction(orderId);
+        clearedTransactionCount = await clearOrderOnlineTransaction(orderId, stuckOnlineTxStatus);
     }
 
     // Отправка SSE-сообщения админам

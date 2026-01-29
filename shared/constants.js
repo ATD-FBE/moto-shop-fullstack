@@ -124,14 +124,19 @@ export const TRANSACTION_TYPE = {
     REFUND: 'refund'
 };
 
-export const PROVIDER_RESOURCE = {
-    PAYMENT: 'payment',
-    REFUND: 'refund'
+export const TRANSACTION_TYPE_CONFIG = {
+    [TRANSACTION_TYPE.PAYMENT]: { label: 'Оплата' },
+    [TRANSACTION_TYPE.REFUND]: { label: 'Возврат средств' }
 };
 
 export const ONLINE_TRANSACTION_STATUS = {
     INIT: 'init',
     PROCESSING: 'processing'
+};
+
+export const ONLINE_TRANSACTION_STATUS_CONFIG = {
+    [ONLINE_TRANSACTION_STATUS.INIT]: { label: 'Подготовка' },
+    [ONLINE_TRANSACTION_STATUS.PROCESSING]: { label: 'В обработке' }
 };
 
 export const BANK_PROVIDER = {

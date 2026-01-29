@@ -185,7 +185,7 @@ export default function NewsEditor({ newsId }) {
                     uiStatus: isValid ? FIELD_UI_STATUS.VALID : FIELD_UI_STATUS.INVALID,
                     error: isValid
                         ? ''
-                        : fieldErrorMessages.news[name]?.default || fieldErrorMessages.DEFAULT
+                        : fieldErrorMessages.news[name].default || fieldErrorMessages.DEFAULT
                 };
         
                 if (isValid) {

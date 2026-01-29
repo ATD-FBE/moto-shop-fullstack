@@ -378,7 +378,7 @@ export default function CheckoutPreferences() {
                     uiStatus: isValid ? FIELD_UI_STATUS.VALID : FIELD_UI_STATUS.INVALID,
                     error: isValid
                         ? ''
-                        : fieldErrorMessages.checkout[name]?.default || fieldErrorMessages.DEFAULT
+                        : fieldErrorMessages.checkout[name].default || fieldErrorMessages.DEFAULT
                 };
         
                 if (isValid) {

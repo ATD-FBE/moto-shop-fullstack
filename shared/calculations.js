@@ -73,7 +73,7 @@ export const getOrderCardRefundStats = (history) => {
     );
 
     const refundablePayments = [];
-    const refundableProviders = new Set();
+    const refundableProvidersSet = new Set();
     let availableCardRefundAmount = 0;
 
     for (const entry of history) {
@@ -83,13 +83,13 @@ export const getOrderCardRefundStats = (history) => {
         if (alreadyRefundedTransactionIdSet.has(entry.action.transactionId)) continue;
 
         refundablePayments.push(entry);
-        refundableProviders.add(entry.action.provider);
+        refundableProvidersSet.add(entry.action.provider);
         availableCardRefundAmount += entry.action.amount;
     }
 
     return {
         refundablePayments,
-        refundableProviders: [...refundableProviders],
+        refundableProviders: [...refundableProvidersSet],
         availableCardRefundAmount
     };
 };

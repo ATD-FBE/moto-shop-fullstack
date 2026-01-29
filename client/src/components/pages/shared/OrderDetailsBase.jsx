@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
-import { useLocation, useParams, useNavigate, Link } from 'react-router-dom';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import cn from 'classnames';
 import { OrderInvoiceButton } from '@/components/parts/OrderParts.jsx';
 import OrderDetailsItems from './order-details-base/OrderDetailsItems.jsx';
@@ -26,8 +26,8 @@ import {
     DELIVERY_METHOD_OPTIONS,
     PAYMENT_METHOD,
     PAYMENT_METHOD_OPTIONS,
-    TRANSACTION_TYPE,
-    ONLINE_TRANSACTION_STATUS,
+    TRANSACTION_TYPE_CONFIG,
+    ONLINE_TRANSACTION_STATUS_CONFIG,
     ORDER_STATUS,
     ORDER_STATUS_CONFIG,
     ORDER_ACTIVE_STATUSES,
@@ -305,19 +305,10 @@ function OrderDetailsMain({
         isUnpaid &&
         !currentOnlineTransaction;
 
-    const onlineOperationType =
-        currentOnlineTransaction?.type === TRANSACTION_TYPE.PAYMENT
-            ? 'Онлайн-оплата'
-            : currentOnlineTransaction?.type === TRANSACTION_TYPE.REFUND
-                ? 'Возврат средств'
-                : NO_VALUE_LABEL;
-
-    const onlineOperationStatus =
-        currentOnlineTransaction?.status === ONLINE_TRANSACTION_STATUS.INIT
-            ? 'Подготовка'
-            : currentOnlineTransaction?.status === ONLINE_TRANSACTION_STATUS.PROCESSING
-                ? 'В обработке'
-                : NO_VALUE_LABEL;
+    const onlineOperationType = TRANSACTION_TYPE_CONFIG[currentOnlineTransaction?.type];
+    const onlineProviders = currentOnlineTransaction?.providers;
+    const onlineOperationStatus = ONLINE_TRANSACTION_STATUS_CONFIG[currentOnlineTransaction?.status];
+    const onlineConfirmationUrl = currentOnlineTransaction?.confirmationUrl;
 
     const formattedTotalPaid = formatCurrency(totalPaid);
     const formattedTotalAmount = formatCurrency(totalAmount);
@@ -503,7 +494,7 @@ function OrderDetailsMain({
                                     </span>
                                 </p>
                                 <p>
-                                    <span className="label">Событие зафиксировано: </span>
+                                    <span className="label">Последнее событие зафиксировано: </span>
                                     <span className="value">{lastFinancialsEventChangedDate}</span>
                                 </p>
                             </>
@@ -518,19 +509,27 @@ function OrderDetailsMain({
                             <div className="order-online-transaction">
                                 <span className="label">Информация о текущей онлайн-транзакции: </span>
                                 <ul className="value">
-                                    <li>Тип операции: {onlineOperationType}</li>
-                                    <li>Провайдер: {currentOnlineTransaction.providers?.join(', ')}</li>
-                                    <li>Сумма: {formattedOnlineTransactionAmount} руб.</li>
-                                    <li>Статус: {onlineOperationStatus}</li>
-                                    {currentOnlineTransaction.confirmationUrl && (
+                                    <li>
+                                        Тип операции:{' '}
+                                        {onlineOperationType?.label ?? NO_VALUE_LABEL}
+                                    </li>
+                                    <li>
+                                        Сумма:{' '}
+                                        {formattedOnlineTransactionAmount} руб.
+                                    </li>
+                                    <li>
+                                        {`Провайдер${onlineProviders?.length > 1 ? 'ы' : ''}: `}
+                                        {onlineProviders?.join(', ').toUpperCase() || NO_VALUE_LABEL}
+                                    </li>
+                                    <li>
+                                        Статус:{' '}
+                                        {onlineOperationStatus?.label ?? NO_VALUE_LABEL}
+                                    </li>
+                                    {onlineConfirmationUrl && (
                                         <li>
                                             Ссылка подтверждения операции:{' '}
-                                            <a
-                                                href={currentOnlineTransaction.confirmationUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                {currentOnlineTransaction.confirmationUrl} ↗
+                                            <a href={onlineConfirmationUrl}>
+                                                {onlineConfirmationUrl} ↗
                                             </a>
                                         </li>
                                     )}

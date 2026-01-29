@@ -313,7 +313,7 @@ export default function PromoEditor({ promoId }) {
                     uiStatus: isValid ? FIELD_UI_STATUS.VALID : FIELD_UI_STATUS.INVALID,
                     error: isValid
                         ? ''
-                        : fieldErrorMessages.promotion[name]?.default || fieldErrorMessages.DEFAULT
+                        : fieldErrorMessages.promotion[name].default || fieldErrorMessages.DEFAULT
                 };
         
                 if (isValid) {

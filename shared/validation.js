@@ -163,6 +163,7 @@ export const validationRules = {
         totalRefunded: currencyValidation,
         amount: currencyValidation,     // Общее поле для payment и refund действий
         transactionId: textValidation,  // Общее поле для payment и refund действий
+        failureReason: textValidation,  // Общее поле для payment и refund действий
         eventId: textValidation,
         voidedNote: textValidation
     },
@@ -172,6 +173,7 @@ export const validationRules = {
         amount: currencyValidation,
         transactionId: textValidation,
         markAsFailed: alwaysPassValidation,
+        failureReason: textValidation,
         cardNumber: cardNumberValidation,
         cvc: cvcValidation,
         expiryMonth: expiryMonthValidation,
@@ -184,6 +186,7 @@ export const validationRules = {
         transactionId: textValidation,
         originalPaymentId: textValidation,
         markAsFailed: alwaysPassValidation,
+        failureReason: textValidation,
         externalReference: textValidation
     }
 };
@@ -460,7 +463,7 @@ export const fieldErrorMessages = {
         cancellationReason: {
             default: 'Обязательно к заполнению'
         },
-        internalNote: { // Опциональное поле
+        internalNote: {  // Опциональное поле
             default: ''
         }
     },
@@ -478,10 +481,13 @@ export const fieldErrorMessages = {
         transactionId: { // Общее поле при оплате/возврате для проверки в схеме Mongoose
             default: 'Некорректный ID транзакции'
         },
+        failureReason: { // Общее поле при оплате/возврате для проверки в схеме Mongoose
+            default: 'Некорректная причина неуспеха'
+        },
         eventId: {
             default: 'Некорректный ID финансового события'
         },
-        voidedNote: { // Опциональное поле
+        voidedNote: {    // Опциональное поле
             default: ''
         }
     },
@@ -503,6 +509,9 @@ export const fieldErrorMessages = {
         },
         markAsFailed: {
             default: 'Некорректное значение флага'
+        },
+        failureReason: { // Опциональное поле
+            default: ''
         },
         cardNumber: {
             default: 'Некорректный номер карты'
@@ -535,6 +544,9 @@ export const fieldErrorMessages = {
         },
         markAsFailed: {
             default: 'Некорректное значение флага'
+        },
+        failureReason: { // Опциональное поле
+            default: ''
         },
         originalPaymentId: { // Для парсера ошибок
             default: ''

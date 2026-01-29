@@ -139,7 +139,7 @@ export default function VoidEventForm({ orderId, hasFinancialsEvents }) {
                     uiStatus: isValid ? FIELD_UI_STATUS.VALID : FIELD_UI_STATUS.INVALID,
                     error: isValid
                         ? ''
-                        : fieldErrorMessages.financials[name]?.default || fieldErrorMessages.DEFAULT
+                        : fieldErrorMessages.financials[name].default || fieldErrorMessages.DEFAULT
                 };
 
                 if (isValid) {

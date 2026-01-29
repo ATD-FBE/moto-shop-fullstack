@@ -273,7 +273,7 @@ export const handleOrderOfflinePaymentApplyRequest = async (req, res, next) => {
     const orderId = req.params.orderId;
     const { transaction } = req.body ?? {};
     const {
-        method, provider, amount, transactionId, markAsFailed
+        method, provider, amount, transactionId, markAsFailed, failureReason
     } = typeCheck.object(transaction) ? transaction : {};
 
     const inputTypeMap = {
@@ -283,7 +283,8 @@ export const handleOrderOfflinePaymentApplyRequest = async (req, res, next) => {
         provider: { value: provider, type: 'string', optional: true, form: true },
         amount: { value: amount, type: 'number', form: true },
         transactionId: { value: transactionId, type: 'string', optional: true, form: true },
-        markAsFailed: { value: markAsFailed, type: 'boolean', optional: true, form: true }
+        markAsFailed: { value: markAsFailed, type: 'boolean', optional: true, form: true },
+        failureReason: { value: failureReason, type: 'string', optional: true, form: true }
     };
 
     const { invalidInputKeys, fieldErrors } = validateInputTypes(inputTypeMap, 'payment');
@@ -390,6 +391,7 @@ export const handleOrderOfflinePaymentApplyRequest = async (req, res, next) => {
                 provider: prepDbFields.provider,
                 transactionId: prepDbFields.transactionId,
                 markAsFailed,
+                failureReason,
                 actor: dbUser
             });
 
@@ -444,7 +446,7 @@ export const handleOrderOfflineRefundApplyRequest = async (req, res, next) => {
     const orderId = req.params.orderId;
     const { transaction } = req.body ?? {};
     const {
-        method, provider, amount, transactionId, markAsFailed, externalReference
+        method, provider, amount, transactionId, markAsFailed, failureReason, externalReference
     } = typeCheck.object(transaction) ? transaction : {};
 
     const inputTypeMap = {
@@ -455,6 +457,7 @@ export const handleOrderOfflineRefundApplyRequest = async (req, res, next) => {
         amount: { value: amount, type: 'number', form: true },
         transactionId: { value: transactionId, type: 'string', optional: true, form: true },
         markAsFailed: { value: markAsFailed, type: 'boolean', optional: true, form: true },
+        failureReason: { value: failureReason, type: 'string', optional: true, form: true },
         externalReference: { value: externalReference, type: 'string', optional: true, form: true },
     };
 
@@ -557,6 +560,7 @@ export const handleOrderOfflineRefundApplyRequest = async (req, res, next) => {
                 provider: prepDbFields.provider,
                 transactionId: prepDbFields.transactionId,
                 markAsFailed,
+                failureReason,
                 externalReference: prepDbFields.externalReference,
                 actor: dbUser
             });
@@ -755,8 +759,8 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
             paymentToken,
             amount: amountNum,
             currency: 'RUB',
-            returnUrl: getCustomerOrderDetailsUrl(orderNumber, orderId) + '?t=true',
-            description: `[${new Date().getTime()}] Оплата заказа ${orderLbl} для магазина "Мото-Магазин"`,
+            returnUrl: getCustomerOrderDetailsUrl(orderNumber, orderId),
+            description: `Оплата заказа ${orderLbl} для магазина "Мото-Магазин"`,
             orderId,
             orderNumber,
             customerId: updatedDbOrder.customerId.toString(),
@@ -768,7 +772,8 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
             log.error(`Ошибка создания транзакции оплаты для заказа ${orderLbl}:`, paymentResult.error);
 
             // Откат создания данных онлайн-транзакции в заказе
-            const clearedTransactionCount = await clearOrderOnlineTransaction(orderId);
+            const clearedTransactionCount =
+                await clearOrderOnlineTransaction(orderId, ONLINE_TRANSACTION_STATUS.INIT);
 
             // Формирование и отправка SSE-сообщения с удалёнными данными по онлайн-транзакции
             if (clearedTransactionCount > 0) {
@@ -990,7 +995,8 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
         // Обработка ситуации, когда не создалось ни одного успешного возврата
         if (!allRefundIds.length) {
             // Откат создания данных онлайн-транзакции в заказе
-            const clearedTransactionCount = await clearOrderOnlineTransaction(orderId);
+            const clearedTransactionCount =
+                await clearOrderOnlineTransaction(orderId, ONLINE_TRANSACTION_STATUS.INIT);
 
             // Формирование и отправка SSE-сообщения с удалёнными данными по онлайн-транзакции
             if (clearedTransactionCount > 0) {
@@ -1079,7 +1085,8 @@ export const handleWebhook = async (req, res, next) => {
 
     // Проверка критических данных вебхука
     const {
-        orderId, transactionId, amount, transactionType, originalPaymentId, markAsFailed
+        orderId, transactionId, amount, transactionType,
+        originalPaymentId, markAsFailed, failureReason, createdAt
     } = normalizedWebhook;
     const logContext = `${req.logCtx} [WEBHOOK ${provider.toUpperCase()}]`;
 
@@ -1150,6 +1157,8 @@ export const handleWebhook = async (req, res, next) => {
                 transactionId,
                 originalPaymentId,
                 markAsFailed,
+                failureReason,
+                createdAt,
                 actor: { name: 'SYSTEM', role: 'system' }
             });
 
@@ -1174,6 +1183,11 @@ export const handleWebhook = async (req, res, next) => {
                 }
             }
 
+            // Сортировка истории финансов по дате изменений
+            dbOrder.financials.eventHistory.sort((eventA, eventB) =>
+                new Date(eventA.changedAt).getTime() - new Date(eventB.changedAt).getTime()
+            );
+
             // Сохранение обновлённого заказа
             const updatedDbOrder = await dbOrder.save({ session });
 
@@ -1188,10 +1202,10 @@ export const handleWebhook = async (req, res, next) => {
             const orderPatches = [
                 { path: orderDotNotationMap.financialsState, value: updatedDbOrder.financials.state },
                 { path: orderDotNotationMap.totalPaid, value: updatedDbOrder.financials.totalPaid },
-                { path: orderDotNotationMap.totalRefunded, value: updatedDbOrder.financials.totalRefunded }
+                { path: orderDotNotationMap.totalRefunded, value: updatedDbOrder.financials.totalRefunded },
+                { path: orderDotNotationMap.eventHistory, value: updatedDbOrder.financials.eventHistory }
             ];
-            const newFinancialsEventEntry = updatedDbOrder.financials.eventHistory.at(-1).toObject();
-            const updatedOrderData = { orderPatches, newFinancialsEventEntry };
+            const updatedOrderData = { orderPatches };
 
             return { updatedOrderData };
         });

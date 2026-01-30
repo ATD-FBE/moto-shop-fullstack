@@ -1,10 +1,13 @@
-import React, { useReducer, useState, useRef, useEffect } from 'react';
+import React, { useReducer, useState, useRef, useMemo, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
-import { useLocation, useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import cn from 'classnames';
 import FormFooter from '@/components/common/FormFooter.jsx';
 import useExternalScript from '@/hooks/useExternalScript.js';
-import { sendOrderOnlinePaymentCreateRequest } from '@/api/orderRequests.js';
+import {
+    sendOrderRemainingAmountRequest,
+    sendOrderOnlinePaymentCreateRequest
+} from '@/api/orderRequests.js';
 import { routeConfig } from '@/config/appRouting.js';
 import { YOOKASSA_SCRIPT } from '@/config/externalScripts.js';
 import { setIsNavigationBlocked } from '@/redux/slices/uiSlice.js';
@@ -13,7 +16,6 @@ import { toKebabCase, getFieldInfoClass } from '@/helpers/textHelpers.js';
 import { logRequestStatus } from '@/helpers/requestLogger.js';
 import { validationRules, fieldErrorMessages } from '@shared/validation.js';
 import {
-    TRANSACTION_TYPE,
     CARD_ONLINE_PROVIDER_OPTIONS,
     resolveRequestStatus,
     CLIENT_CONSTANTS
@@ -27,7 +29,7 @@ const {
     SUCCESS_DELAY
 } = CLIENT_CONSTANTS;
 
-const getSubmitStates = () => {
+const getSubmitStates = (hasConfirmationUrl) => {
     const base = BASE_SUBMIT_STATES;
     const {
         DEFAULT, LOADING, LOAD_ERROR, BAD_REQUEST, NOT_FOUND, INVALID, ERROR, NETWORK, SUCCESS
@@ -51,7 +53,9 @@ const getSubmitStates = () => {
         [SUCCESS]: {
             ...base[SUCCESS],
             mainMessage: 'Платёж создан и обрабатывается!',
-            addMessage: 'Вы будете перенаправлены на страницу деталей заказа.',
+            addMessage: hasConfirmationUrl
+                ? 'Вы будете перенаправлены на страницу подтверждения оплаты.'
+                : 'Вы будете перенаправлены на страницу деталей заказа.',
             submitBtnLabel: 'Перенаправление...'
         }
     };
@@ -63,7 +67,25 @@ const getSubmitStates = () => {
     return { submitStates, lockedStatuses: new Set(lockedStatuses) };
 };
 
-const { submitStates, lockedStatuses } = getSubmitStates();
+const processFormattedFieldDeletion = (e, context) => {
+    const { value, cursorPos, selectionStart, selectionEnd, format, charRegex } = context;
+    if (e.key !== 'Backspace' || !value || !cursorPos) return null;
+
+    let charToDeleteIdx = cursorPos - 1;
+    while (charToDeleteIdx >= 0 && !charRegex.test(value[charToDeleteIdx])) {
+        charToDeleteIdx--;
+    }
+    if (charToDeleteIdx < 0) return null;
+
+    // Вырезание charToDeleteIdx из значения инпута
+    const newValue = value.slice(0, charToDeleteIdx) + value.slice(charToDeleteIdx + 1);
+
+    return {
+        preventDefault: true, // Браузер не изменит value инпута (onChange не сработает)
+        nextValue: format ? format(newValue) : newValue,
+        nextCursorPos: charToDeleteIdx // Не меняется при format, одинаковые паттерны
+    };
+};
 
 const fieldConfigs = [
     {
@@ -82,9 +104,8 @@ const fieldConfigs = [
     },
     {
         name: 'cardNumber',
-        checkoutName: 'number',
-        checkoutErrorCode: 'invalid_number',
-        label: 'Номер банковской карты',
+        checkout: { fields: [{ name: 'number', errorCode: 'invalid_number' }] },
+        label: 'Номер карты',
         elem: 'input',
         type: 'text',
         maxLength: 19, // 4 * 4 цифры + 3 пробела между группами
@@ -97,45 +118,39 @@ const fieldConfigs = [
                 ? digits.replace(/(\d{4})/g, '$1 ')
                 : digits.replace(/(\d{4})(?=\d)/g, '$1 ');
         },
+        processBackspace: (e, ctx) => processFormattedFieldDeletion(e, { ...ctx, charRegex: /\d/ }),
         submitTransform: (value) => value.replace(/\s/g, '')
     },
     {
         name: 'cvc',
-        checkoutName: 'cvc',
-        checkoutErrorCode: 'invalid_cvc',
+        checkout: { fields: [{ name: 'cvc', errorCode: 'invalid_cvc' }] },
         label: 'Код CVC',
         elem: 'input',
         type: 'password',
         maxLength: 4,
-        placeholder: '000 или 0000',
+        placeholder: '000(0)',
         autoComplete: 'cc-csc',
         format: (value) => value.replace(/\D/g, '').slice(0, 4)
     },
     {
-        name: 'expiryMonth',
-        checkoutName: 'month',
-        checkoutErrorCode: 'invalid_expiry_month',
-        label: 'Месяц истечения срока действия карты',
+        name: 'expiryDate',
+        checkout: {
+            fields: [
+                { name: 'month', errorCode: 'invalid_expiry_month' },
+                { name: 'year', errorCode: 'invalid_expiry_year' }
+            ],
+            split: '/'
+        },
+        label: 'Срок действия',
         elem: 'input',
         type: 'text',
-        maxLength: 2,
-        placeholder: 'MM',
-        autoComplete: 'cc-exp-month',
+        maxLength: 7,
+        placeholder: 'ММ / ГГ',
+        autoComplete: 'cc-exp',
         trim: true,
-        format: (value) => value.replace(/\D/g, '').slice(0, 2)
-    },
-    {
-        name: 'expiryYear',
-        checkoutName: 'year',
-        checkoutErrorCode: 'invalid_expiry_year',
-        label: 'Год истечения срока действия карты',
-        elem: 'input',
-        type: 'text',
-        maxLength: 2,
-        placeholder: 'YY',
-        autoComplete: 'cc-exp-year',
-        trim: true,
-        format: (value) => value.replace(/\D/g, '').slice(0, 2)
+        format: (value) => value.replace(/\D/g, '').replace(/(\d{2})/, '$1 / ').slice(0, 7),
+        processBackspace: (e, ctx) => processFormattedFieldDeletion(e, { ...ctx, charRegex: /\d/ }),
+        submitTransform: (value) => value.replace(/\s/g, '')
     }
 ];
 
@@ -145,9 +160,10 @@ const fieldConfigMap = fieldConfigs.reduce((acc, config) => {
 }, {});
 
 const fieldNameByCheckoutErrorCode = fieldConfigs.reduce((acc, config) => {
-    if (!config.checkoutErrorCode) return acc;
-
-    acc[config.checkoutErrorCode] = config.name;
+    config.checkout?.fields.forEach(({ errorCode }) => {
+        acc[errorCode] = config.name;
+    });
+    
     return acc;
 }, {});
 
@@ -165,6 +181,7 @@ const fieldsStateReducer = (state, action) => {
             for (const name in payload) {
                 newState[name] = { ...(state[name] ?? {}), ...payload[name] };
             }
+            console.log(newState);
             return newState;
 
         default:
@@ -175,13 +192,21 @@ const fieldsStateReducer = (state, action) => {
 export default function CardOnlinePayment() {
     const [fieldsState, dispatchFieldsState] = useReducer(fieldsStateReducer, initialFieldsState);
     const [submitStatus, setSubmitStatus] = useState(FORM_STATUS.LOADING);
+    const [loadingRemainingAmount, setLoadingRemainingAmount] = useState(false);
+    const [confirmationUrl, setConfirmationUrl] = useState(null);
 
     const checkoutRef = useRef(null);
     const isUnmountedRef = useRef(false);
 
     const dispatch = useDispatch();
-    const location = useLocation();
     const navigate = useNavigate();
+
+    const hasConfirmationUrl = Boolean(confirmationUrl);
+
+    const { submitStates, lockedStatuses } = useMemo(
+        () => getSubmitStates(hasConfirmationUrl),
+        [hasConfirmationUrl]
+    );
 
     const { orderNumber, orderId } = parseRouteParams({
         routeKey: 'customerOrderCardOnlinePayment',
@@ -189,7 +214,7 @@ export default function CardOnlinePayment() {
         routeConfig
     });
 
-    const isFormLocked = lockedStatuses.has(submitStatus);
+    const isFormLocked = lockedStatuses.has(submitStatus) || loadingRemainingAmount;
 
     const onCheckoutLoad = () => {
         if (isUnmountedRef.current) return;
@@ -213,10 +238,37 @@ export default function CardOnlinePayment() {
         reloadScript();
     }
 
+    const calcRemainingAmount = async () => {
+        setLoadingRemainingAmount(true);
+
+        const responseData = await dispatch(sendOrderRemainingAmountRequest(orderId));
+        if (isUnmountedRef.current) return;
+
+        const { status, message, remainingAmount, orderNumber } = responseData;
+        logRequestStatus({ context: 'ORDER: LOAD REMAINING AMOUNT', status, message });
+
+        if (status !== FORM_STATUS.SUCCESS) {
+            setSubmitStatus(status);
+        } else {
+            dispatchFieldsState({
+                type: 'UPDATE',
+                payload: { amount: { value: remainingAmount, uiStatus: '', error: '' } }
+            });
+            navigate(
+                routeConfig.customerOrderCardOnlinePayment.generatePath({ orderNumber, orderId }),
+                { replace: true }
+            );
+        }
+
+        setLoadingRemainingAmount(false);
+    };
+
     const handleFieldChange = (e) => {
         const { name, type, value } = e.target;
         const { format } = fieldConfigMap[name] ?? {};
         let processedValue;
+
+        console.log('+ change');
 
         if (format) {
             processedValue = format(value)
@@ -229,6 +281,36 @@ export default function CardOnlinePayment() {
         dispatchFieldsState({
             type: 'UPDATE',
             payload: { [name]: { value: processedValue, uiStatus: '', error: '' } }
+        });
+    };
+
+    const handleFieldKeyDown = (e) => {
+        const { name, value, selectionStart } = e.target;
+        const config = fieldConfigMap[name];
+        if (!config?.processBackspace) return;
+    
+        const result = config.processBackspace(e, {
+            value,
+            cursorPos: selectionStart,
+            format: config.format
+        });
+        if (!result) return;
+
+        console.log('+ backspace');
+    
+        if (result.preventDefault) {
+            e.preventDefault();
+        }
+
+        console.log(result.nextValue);
+    
+        dispatchFieldsState({
+            type: 'UPDATE',
+            payload: { [name]: { value: result.nextValue, uiStatus: '', error: '' } }
+        });
+    
+        requestAnimationFrame(() => {
+            e.target.setSelectionRange(result.nextCursorPos, result.nextCursorPos);
         });
     };
 
@@ -252,12 +334,12 @@ export default function CardOnlinePayment() {
                     return acc;
                 }
 
-                const { checkoutName, trim, optional, submitTransform } = fieldConfigMap[name] ?? {};
+                const { checkout, trim, optional, submitTransform } = fieldConfigMap[name] ?? {};
                 const normalizedValue = trim ? value.trim() : value;
 
                 const ruleCheck =
                     typeof validation === 'function'
-                        ? validation(normalizedValue)
+                        ? validation(normalizedValue, { split: checkout?.split })
                         : validation.test(normalizedValue);
 
                 const isValid = optional ? (!normalizedValue || ruleCheck) : ruleCheck;
@@ -273,8 +355,14 @@ export default function CardOnlinePayment() {
                 if (isValid) {
                     const submittedValue = submitTransform?.(normalizedValue) ?? normalizedValue;
 
-                    if (checkoutName) {
-                        acc.checkoutFields[checkoutName] = submittedValue;
+                    if (checkout) {
+                        const splittedValues = checkout.split
+                            ? submittedValue.split(checkout.split)
+                            : [submittedValue];
+                    
+                        checkout.fields.forEach((field, idx) => {
+                            acc.checkoutFields[field.name] = splittedValues[idx];
+                        });
                     } else {
                         acc.formFields[name] = submittedValue;
                     }
@@ -389,8 +477,6 @@ export default function CardOnlinePayment() {
         } = await processFormFields();
         if (isUnmountedRef.current) return;
 
-        console.log(paymentToken);
-
         dispatchFieldsState({ type: 'UPDATE', payload: fieldStateUpdates });
 
         if (errorRequestStatus) {
@@ -447,6 +533,7 @@ export default function CardOnlinePayment() {
                 });
                 dispatchFieldsState({ type: 'UPDATE', payload: fieldStateUpdates });
 
+                setConfirmationUrl(confirmationUrl);
                 setSubmitStatus(status);
 
                 setTimeout(() => {
@@ -500,7 +587,7 @@ export default function CardOnlinePayment() {
     return (
         <div className="card-online-payment-page">
             <header className="card-online-payment-header">
-                <h3>Оплата заказа банковской картой</h3>
+                <h3>Оплата заказа №{orderNumber} банковской картой онлайн</h3>
             </header>
 
             <form className="card-online-payment-form" onSubmit={handleFormSubmit} noValidate>
@@ -527,6 +614,7 @@ export default function CardOnlinePayment() {
                             placeholder,
                             value: fieldsState[name]?.value,
                             autoComplete,
+                            onKeyDown: handleFieldKeyDown,
                             onChange: handleFieldChange,
                             onBlur: trim ? handleTrimmedFieldBlur : undefined,
                             disabled: isFormLocked
@@ -553,6 +641,18 @@ export default function CardOnlinePayment() {
                                 <label htmlFor={fieldId} className="form-entry-label">{label}:</label>
 
                                 <div className={cn('form-entry-field', fieldsState[name]?.uiStatus)}>
+                                    {name === 'amount' && (
+                                        <button
+                                            type="button"
+                                            className="calc-remaining-amount-btn"
+                                            title="Рассчитать оставшуюся для оплаты заказа сумму"
+                                            onClick={calcRemainingAmount}
+                                            disabled={isFormLocked}
+                                        >
+                                            ∑
+                                        </button>
+                                    )}
+
                                     {fieldElem}
                                     
                                     {fieldsState[name]?.error && (

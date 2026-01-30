@@ -65,6 +65,7 @@ export const calculateOrderFinancials = (history) => {
     );
 };
 
+// Сбор данных для онлайн-возвратов на карты (записи событий и общая сумма оплат картами, провайдеры)
 export const getOrderCardRefundStats = (history) => {
     const alreadyRefundedTransactionIdSet = new Set(
         history

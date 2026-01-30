@@ -3,7 +3,7 @@ import { verifyAuth, verifyUser, verifyRole } from '../middlewares/authMiddlewar
 import {
     handleOrderListRequest,
     handleOrderRequest,
-    handleOrderItemsAvailableRequest,
+    handleOrderItemsAvailabilityRequest,
     handleOrderRepeatRequest,
     handleOrderDetailsUpdateRequest,
     handleOrderItemsUpdateRequest,
@@ -12,6 +12,7 @@ import {
 } from '../controllers/order/orderCoreController.js';
 import {
     handleOrderInvoicePdfRequest,
+    handleOrderRemainingAmountRequest,
     handleOrderFinancialsEventVoidRequest,
     handleOrderOfflinePaymentApplyRequest,
     handleOrderOfflineRefundApplyRequest,
@@ -24,8 +25,9 @@ const router = express.Router();
 
 router.get('/', verifyAuth, verifyUser, verifyRole('admin', 'customer'), handleOrderListRequest);
 router.get('/:orderId', verifyAuth, verifyUser, verifyRole('admin', 'customer'), handleOrderRequest);
-router.get('/:orderId/items/availability', verifyAuth, verifyUser, verifyRole('admin'), handleOrderItemsAvailableRequest);
+router.get('/:orderId/items/availability', verifyAuth, verifyUser, verifyRole('admin'), handleOrderItemsAvailabilityRequest);
 router.get('/:orderId/invoice/pdf', verifyAuth, verifyUser, verifyRole('admin', 'customer'), handleOrderInvoicePdfRequest);
+router.get('/:orderId/financials/remaining', verifyAuth, verifyUser, verifyRole('customer'), handleOrderRemainingAmountRequest);
 router.post('/webhook', handleWebhook);
 router.post('/:orderId/repeat', verifyAuth, verifyUser, verifyRole('customer'), handleOrderRepeatRequest);
 router.post('/:orderId/payment/online', verifyAuth, verifyUser, verifyRole('customer'), handleOrderOnlinePaymentCreateRequest);

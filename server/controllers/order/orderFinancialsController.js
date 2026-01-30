@@ -42,7 +42,6 @@ import {
     ORDER_STATUS,
     ORDER_ACTIVE_STATUSES,
     CASH_ON_RECEIPT_ALLOWED_STATUSES,
-    FINANCIALS_EVENT,
     SUCCESSFUL_FINANCIALS_EVENTS,
     REQUEST_STATUS
 } from '../../../shared/constants.js';
@@ -85,7 +84,48 @@ export const handleOrderInvoicePdfRequest = async (req, res, next) => {
     }
 };
 
-/// Аннулирование записи успешного финансового оффлайн-события в заказе (SEE) ///
+/// Вычисление и загрузка остатка для оплаты заказа банковской картой онлайн ///
+export const handleOrderRemainingAmountRequest = async (req, res, next) => {
+    const dbUser = req.dbUser;
+    const orderId = req.params.orderId;
+
+    if (!typeCheck.objectId(orderId)) {
+        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: orderId' });
+    }
+
+    try {
+        const dbOrder = await Order.findById(orderId).lean();
+        const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
+        
+        if (!dbOrder) {
+            return safeSendResponse(req, res, 404, { message: `Заказ ${orderLbl} не найден` });
+        }
+        if (!dbOrder.customerId.equals(dbUser._id)) {
+            return safeSendResponse(req, res, 403, {
+                message: `Запрещено: заказ ${orderLbl} принадлежит другому клиенту`,
+                reason: REQUEST_STATUS.DENIED
+            });
+        }
+        if (dbOrder.currentStatus === ORDER_STATUS.DRAFT) {
+            return safeSendResponse(req, res, 409, { message: `Заказ ${orderLbl} не оформлен` });
+        }
+
+        const financials = calculateOrderFinancials(dbOrder.financials.eventHistory);
+        const netPaid = financials.totalPaid - financials.totalRefunded;
+        const totalAmount = dbOrder.totals.totalAmount;
+        const remainingAmount = totalAmount - netPaid;
+
+        safeSendResponse(req, res, 200, {
+            message: `Остаток для оплаты заказа ${orderLbl} успешно вычислен`,
+            remainingAmount,
+            orderNumber: dbOrder.orderNumber
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/// Аннулирование записи успешного финансового оффлайн-события в заказе (SSE у клиента) ///
 export const handleOrderFinancialsEventVoidRequest = async (req, res, next) => {
     const dbUser = req.dbUser;
 
@@ -267,7 +307,7 @@ export const handleOrderFinancialsEventVoidRequest = async (req, res, next) => {
     }
 };
 
-/// Внесение оплаты за заказ оффлайн-методом (SEE) ///
+/// Внесение оплаты за заказ оффлайн-методом (SSE у клиента) ///
 export const handleOrderOfflinePaymentApplyRequest = async (req, res, next) => {
     const dbUser = req.dbUser;
     const orderId = req.params.orderId;
@@ -440,7 +480,7 @@ export const handleOrderOfflinePaymentApplyRequest = async (req, res, next) => {
     }
 };
 
-/// Возврат средств за заказ оффлайн-методом (SEE) ///
+/// Возврат средств за заказ оффлайн-методом (SSE у клиента) ///
 export const handleOrderOfflineRefundApplyRequest = async (req, res, next) => {
     const dbUser = req.dbUser;
     const orderId = req.params.orderId;
@@ -610,7 +650,7 @@ export const handleOrderOfflineRefundApplyRequest = async (req, res, next) => {
     }
 };
 
-/// Создание онлайн платежа для банковской карты через YooKassa ///
+/// Создание онлайн платежа для банковской карты ///
 export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
     const dbUser = req.dbUser;
     const orderId = req.params.orderId;
@@ -828,14 +868,14 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
         // Отправка ответа клиенту
         safeSendResponse(req, res, 200, {
             message: `Оплата за заказ ${orderLbl} картой онлайн обрабатывается`,
-            confirmationUrl: paymentResult.confirmationUrl ?? null
+            confirmationUrl: paymentResult.confirmationUrl
         });
     } catch (err) {
         next(err);
     }
 };
 
-/// Создание возвратов для банковских карт заказа ///
+/// Создание возвратов для банковских карт ///
 export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
     const orderId = req.params.orderId;
 
@@ -1054,12 +1094,12 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
     }
 };
 
-/// Обработка уведомления (вебхука) от YooKassa об онлайн-оплате или возврате на карту ///
+/// Обработка уведомления (вебхука) от онлайн-провайдера (банковская карта) ///
 export const handleWebhook = async (req, res, next) => {
+    console.log('Webhook:', req.body);
+
     // Определение провайдера по заголовку
     const provider = detectWebhookProvider(req);
-
-    console.log('provider:', provider);
 
     if (!provider) {
         return safeSendResponse(req, res, 200, { message: 'Неизвестный провайдер' });
@@ -1068,16 +1108,12 @@ export const handleWebhook = async (req, res, next) => {
     // Проверка подписи заголовка
     const isValidAuthenticity = verifyWebhookAuthenticity(provider, req);
 
-    console.log('isValidAuthenticity:', isValidAuthenticity);
-
     if (!isValidAuthenticity) {
         return safeSendResponse(req, res, 200, { message: '' });
     }
 
     // Нормализация данных в теле запроса
     const normalizedWebhook = normalizeWebhook(provider, req.body);
-
-    console.log('normalizedWebhook:', normalizedWebhook);
 
     if (!normalizedWebhook) {
         return safeSendResponse(req, res, 200, { message: 'Игнорирование события' });

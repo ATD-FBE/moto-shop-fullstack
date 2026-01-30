@@ -5,6 +5,7 @@ import apiResponse from './core/apiResponse.js';
 //GET /api/orders/:orderId - Получить заказ по id. Конкретный заказ клиента или админа.
 //GET /api/orders/:orderId/items/availability - Получить доступное кол-во заказанных товаров на складе.
 //GET /api/orders/:orderId/invoice - Получить счёт по заказу.
+//GET /api/orders/:orderId/financials/remaining - Получить остаток стоимости для оплаты онлайн.
 //POST /api/orders/webhook - Обработка ответа платёжки при оплате картой онлайн.
 //POST /api/orders/:orderId/repeat - Повторить заказ клиентом.
 //POST /api/orders/:orderId/payment/online - Внести оплату клиентом онлайн-картой.
@@ -54,10 +55,106 @@ export const sendOrderRequest = (orderId, urlParams) => async (dispatch) => {
 export const sendOrderItemsAvailabilityRequest = (orderId) => async (dispatch) => {
     const url = `/api/orders/${orderId}/items/availability`;
     const options = { method: 'GET' };
-    const errorPrefix = 'Не удалось получить доступное на складе количество товаров в заказе';
+    const errorPrefix = 'Не удалось получить доступное на складе количество товаров из заказа';
     const config = {
         authRequired: true,
         timeout: 10000,
+        minDelay: 0,
+        errorPrefix
+    };
+
+    const response = await dispatch(apiFetch(url, options, config));
+    return await apiResponse(response, { errorPrefix });
+};
+
+/// Повтор завершённого или отменённого заказа ///
+export const sendOrderRepeatRequest = (orderId) => async (dispatch) => {
+    const url = `/api/orders/${orderId}/repeat`;
+    const options = { method: 'POST' };
+    const errorPrefix = 'Ошибка при повторе заказа';
+    const config = {
+        authRequired: true,
+        timeout: 10000,
+        minDelay: 750,
+        errorPrefix
+    };
+
+    const response = await dispatch(apiFetch(url, options, config));
+    return await apiResponse(response, { errorPrefix });
+};
+
+/// Изменение внутренней заметки заказа (SSE у клиента) ///
+export const sendOrderInternalNoteUpdateRequest = (orderId, formFields) => async (dispatch) => {
+    const url = `/api/orders/${orderId}/internal-note`;
+    const options = {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formFields)
+    };
+    const errorPrefix = 'Не удалось изменить внутреннюю заметку заказа';
+    const config = {
+        authRequired: true,
+        timeout: 10000,
+        minDelay: 0,
+        errorPrefix
+    };
+
+    const response = await dispatch(apiFetch(url, options, config));
+    return await apiResponse(response, { errorPrefix });
+};
+
+/// Изменение деталей подтверждённого заказа (SSE у клиента) ///
+export const sendOrderDetailsUpdateRequest = (orderId, formFields) => async (dispatch) => {
+    const url = `/api/orders/${orderId}`;
+    const options = {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formFields)
+    };
+    const errorPrefix = 'Не удалось изменить заказ';
+    const config = {
+        authRequired: true,
+        timeout: 12000,
+        minDelay: 0,
+        errorPrefix
+    };
+
+    const response = await dispatch(apiFetch(url, options, config));
+    return await apiResponse(response, { errorPrefix });
+};
+
+/// Изменение товаров подтверждённого заказа (SSE у клиента) ///
+export const sendOrderItemsUpdateRequest = (orderId, formFields) => async (dispatch) => {
+    const url = `/api/orders/${orderId}/items`;
+    const options = {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formFields)
+    };
+    const errorPrefix = 'Не удалось изменить товары в заказе';
+    const config = {
+        authRequired: true,
+        timeout: 12000,
+        minDelay: 0,
+        errorPrefix
+    };
+
+    const response = await dispatch(apiFetch(url, options, config));
+    return await apiResponse(response, { errorPrefix });
+};
+
+/// Изменение статуса заказа (SSE у клиента) ///
+export const sendOrderStatusUpdateRequest = (orderId, requestData) => async (dispatch) => {
+    const url = `/api/orders/${orderId}/status`;
+    const options = {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestData)
+    };
+    const errorPrefix = 'Не удалось изменить статус заказа';
+    const config = {
+        authRequired: true,
+        timeout: 15000,
         minDelay: 0,
         errorPrefix
     };
@@ -82,15 +179,15 @@ export const sendOrderInvoicePdfRequest = (orderId) => async (dispatch) => {
     return await apiResponse(response, { errorPrefix, asFile: true });
 };
 
-/// Повтор завершённого или отменённого заказа ///
-export const sendOrderRepeatRequest = (orderId) => async (dispatch) => {
-    const url = `/api/orders/${orderId}/repeat`;
-    const options = { method: 'POST' };
-    const errorPrefix = 'Ошибка при повторе заказа';
+/// Вычисление и загрузка остатка для оплаты заказа банковской картой онлайн ///
+export const sendOrderRemainingAmountRequest = (orderId) => async (dispatch) => {
+    const url = `/api/orders/${orderId}/financials/remaining`;
+    const options = { method: 'GET' };
+    const errorPrefix = 'Не удалось вычислить остаток оплаты заказа';
     const config = {
         authRequired: true,
         timeout: 10000,
-        minDelay: 750,
+        minDelay: 250,
         errorPrefix
     };
 
@@ -98,27 +195,7 @@ export const sendOrderRepeatRequest = (orderId) => async (dispatch) => {
     return await apiResponse(response, { errorPrefix });
 };
 
-/// Изменение внутренней заметки заказа (SEE) ///
-export const sendOrderInternalNoteUpdateRequest = (orderId, formFields) => async (dispatch) => {
-    const url = `/api/orders/${orderId}/internal-note`;
-    const options = {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formFields)
-    };
-    const errorPrefix = 'Не удалось изменить внутреннюю заметку заказа';
-    const config = {
-        authRequired: true,
-        timeout: 10000,
-        minDelay: 0,
-        errorPrefix
-    };
-
-    const response = await dispatch(apiFetch(url, options, config));
-    return await apiResponse(response, { errorPrefix });
-};
-
-/// Аннулирование записи успешного финансового события в заказе (SEE) ///
+/// Аннулирование записи успешного финансового события в заказе (SSE у клиента) ///
 export const sendOrderFinancialsEventVoidRequest = (orderId, formFields) => async (dispatch) => {
     const url = `/api/orders/${orderId}/financials/events/void`;
     const options = {
@@ -138,67 +215,7 @@ export const sendOrderFinancialsEventVoidRequest = (orderId, formFields) => asyn
     return await apiResponse(response, { errorPrefix });
 };
 
-/// Изменение деталей подтверждённого заказа (SEE) ///
-export const sendOrderDetailsUpdateRequest = (orderId, formFields) => async (dispatch) => {
-    const url = `/api/orders/${orderId}`;
-    const options = {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formFields)
-    };
-    const errorPrefix = 'Не удалось изменить заказ';
-    const config = {
-        authRequired: true,
-        timeout: 12000,
-        minDelay: 0,
-        errorPrefix
-    };
-
-    const response = await dispatch(apiFetch(url, options, config));
-    return await apiResponse(response, { errorPrefix });
-};
-
-/// Изменение товаров подтверждённого заказа (SEE) ///
-export const sendOrderItemsUpdateRequest = (orderId, formFields) => async (dispatch) => {
-    const url = `/api/orders/${orderId}/items`;
-    const options = {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formFields)
-    };
-    const errorPrefix = 'Не удалось изменить товары в заказе';
-    const config = {
-        authRequired: true,
-        timeout: 12000,
-        minDelay: 0,
-        errorPrefix
-    };
-
-    const response = await dispatch(apiFetch(url, options, config));
-    return await apiResponse(response, { errorPrefix });
-};
-
-/// Изменение статуса заказа (SEE) ///
-export const sendOrderStatusUpdateRequest = (orderId, requestData) => async (dispatch) => {
-    const url = `/api/orders/${orderId}/status`;
-    const options = {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData)
-    };
-    const errorPrefix = 'Не удалось изменить статус заказа';
-    const config = {
-        authRequired: true,
-        timeout: 15000,
-        minDelay: 0,
-        errorPrefix
-    };
-
-    const response = await dispatch(apiFetch(url, options, config));
-    return await apiResponse(response, { errorPrefix });
-};
-
-/// Внесение оплаты за заказ оффлайн-методом (SEE) ///
+/// Внесение оплаты за заказ оффлайн-методом (SSE у клиента) ///
 export const sendOrderOfflinePaymentApplyRequest = (orderId, requestData) => async (dispatch) => {
     const url = `/api/orders/${orderId}/payment/offline`;
     const options = {
@@ -218,7 +235,7 @@ export const sendOrderOfflinePaymentApplyRequest = (orderId, requestData) => asy
     return await apiResponse(response, { errorPrefix });
 };
 
-/// Возврат средств за заказ оффлайн-методом (SEE) ///
+/// Возврат средств за заказ оффлайн-методом (SSE у клиента) ///
 export const sendOrderOfflineRefundApplyRequest = (orderId, requestData) => async (dispatch) => {
     const url = `/api/orders/${orderId}/refund/offline`;
     const options = {
@@ -246,7 +263,7 @@ export const sendOrderOnlinePaymentCreateRequest = (orderId, requestData) => asy
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestData)
     };
-    const errorPrefix = 'Не удалось оплатить заказ картой';
+    const errorPrefix = 'Не удалось создать онлайн-платёж для карты';
     const config = {
         authRequired: true,
         timeout: 15000,
@@ -262,7 +279,7 @@ export const sendOrderOnlinePaymentCreateRequest = (orderId, requestData) => asy
 export const sendOrderOnlineRefundsCreateRequest = (orderId) => async (dispatch) => {
     const url = `/api/orders/${orderId}/refund/online/full`;
     const options = { method: 'POST' };
-    const errorPrefix = 'Не удалось сделать автовозврат на карты';
+    const errorPrefix = 'Не удалось создать онлайн-возвраты на карты';
     const config = {
         authRequired: true,
         timeout: 15000,

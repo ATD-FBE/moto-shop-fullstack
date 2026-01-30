@@ -66,6 +66,8 @@ $order-content-spacing: 10px;
 $entity-table-cell-padding-x: 3px;
 $entity-table-border-color: rgba($color-blue, 0.5);
 $form-field-base-height: 33px;
+$form-field-btn-width: 42px;
+$form-field-btn-margin-right: 10px;
 $product-thumb-smallest-size: 48px;
 $product-thumb-small-size: 80px;
 $product-thumb-medium-size: 220px;
@@ -2529,6 +2531,7 @@ mark.highlighted-text {
                                             .invalid-message {
                                                 left: 0.4em;
                                                 top: calc(100% + 0.1em);
+                                                width: calc(100% - 0.4em);
                                                 text-align: left;
                                                 font-size: 8pt;
                                             }
@@ -2662,6 +2665,7 @@ mark.highlighted-text {
                                     .note {
                                         left: 0.4em;
                                         top: calc(100% + 0.1em);
+                                        width: calc(100% - 0.4em);
                                     }
                                 }
                             }
@@ -2740,6 +2744,7 @@ mark.highlighted-text {
                                     .invalid-message {
                                         left: 0.4em;
                                         top: calc(100% + 0.1em);
+                                        width: calc(100% - 0.4em);
                                     }
                                 }
                             }
@@ -4915,6 +4920,7 @@ main {
                     .invalid-message {
                         left: 0.4em;
                         top: calc(100% + 0.1em);
+                        width: calc(100% - 0.4em);
                         text-align: left;
                         white-space: normal;
                     }
@@ -5127,6 +5133,7 @@ main {
                                         .invalid-message {
                                             left: 0.4em;
                                             top: calc(100% + 0.1em);
+                                            width: calc(100% - 0.4em);
                                         }
                                     }
                                 }
@@ -5415,6 +5422,7 @@ main {
                             .invalid-message {
                                 left: auto;
                                 right: 0;
+                                width: 100%;
                                 text-align: right;
                             }
                         }
@@ -5434,6 +5442,7 @@ main {
                         .invalid-message {
                             left: 0.4em;
                             top: calc(100% + 0.1em);
+                            width: calc(100% - 0.4em);
                         }
                     }
                 }
@@ -5533,6 +5542,7 @@ main {
                                 .invalid-message {
                                     left: 0.4em;
                                     top: calc(100% + 0.1em);
+                                    width: calc(100% - 0.4em);
                                 }
                             }
                         }
@@ -5977,6 +5987,7 @@ main {
                         .invalid-message {
                             left: 0.4em;
                             top: calc(100% + 0.1em);
+                            width: calc(100% - 0.4em);
                         }
                     }
                 }
@@ -6814,6 +6825,21 @@ main {
                                 align-items: center;
                                 padding-bottom: 26px;
                             }
+
+                            &.email-field {
+                                .form-entry-field {
+                                    .invalid-message {
+                                        $shift: calc(
+                                            0.4em +
+                                            $form-field-btn-width +
+                                            $form-field-btn-margin-right
+                                        );
+
+                                        left: $shift;
+                                        width: calc(100% - $shift);
+                                    }
+                                }
+                            }
                             
                             .form-entry-label {
                                 width: 22%;
@@ -6851,8 +6877,9 @@ main {
                                 } @else {
                                     .auto-fill-email-btn {
                                         @include control-button();
-                                        min-width: 42px;
-                                        margin-right: 10px;
+                                        flex-shrink: 0;
+                                        width: $form-field-btn-width;
+                                        margin-right: $form-field-btn-margin-right;
                                         color: $color-blue;
                                         font-size: 18pt;
                                         line-height: 1;
@@ -6860,6 +6887,7 @@ main {
                                     .invalid-message {
                                         left: 0.4em;
                                         top: calc(100% + 0.1em);
+                                        width: calc(100% - 0.4em);
                                     }
                                 }
                             }
@@ -7530,6 +7558,7 @@ main {
                                     .invalid-message {
                                         left: 0.4em;
                                         top: calc(100% + 0.1em);
+                                        width: calc(100% - 0.4em);
                                     }
                                 }
                             }
@@ -7600,8 +7629,9 @@ main {
     }
 
     .card-online-payment-form {
-        width: 45%;
-        min-width: 454px;
+        width: 40%;
+        min-width: 300px;
+        max-width: 420px;
         margin-top: $main-content-spacing;
         padding: 12px;
         border: 1px solid $border-color-form;
@@ -7619,16 +7649,40 @@ main {
                 gap: 8px;
                 padding-bottom: 26px;
 
+                &.amount-field,
+                &.card-number-field {
+                    .form-entry-field {
+                        width: 186px;
+                    }
+                }
+                &.cvc-field,
+                &.expiry-date-field {
+                    .form-entry-field {
+                        width: 80px;
+                    }
+                }
+
                 .form-entry-label {
-                    width: 35%;
+                    width: 25%;
+                    min-width: 120px;
                     line-height: 1.1;
                     letter-spacing: -0.02em;
                     overflow-wrap: anywhere;
                 }
                 .form-entry-field {
                     @include form-field-wrapper();
-                    width: 65%;
-
+                    display: flex;
+                    justify-content: flex-end;
+                    width: 75%;
+                    
+                    .calc-remaining-amount-btn {
+                        @include control-button();
+                        min-width: $form-field-btn-width;
+                        margin-right: $form-field-btn-margin-right;
+                        color: $color-blue;
+                        font-size: 16pt;
+                        line-height: 1;
+                    }
                     .invalid-message {
                         left: calc(100% + 18px);
                         top: 1px;
@@ -8038,6 +8092,14 @@ main {
                     }
                 }
             }
+        }
+    }
+
+    .card-online-payment-page {
+        width: 100%;
+
+        .card-online-payment-form {
+            width: 50%;
         }
     }
 }
@@ -8520,7 +8582,7 @@ main {
                                     .invalid-message {
                                         left: 0.4em;
                                         top: calc(100% + 0.1em);
-                                        width: 100%;
+                                        width: calc(100% - 0.4em);
                                     }
                                 }
                             }
@@ -8546,7 +8608,7 @@ main {
                                 .invalid-message {
                                     left: 0.4em;
                                     top: calc(100% + 0.1em);
-                                    width: 100%;
+                                    width: calc(100% - 0.4em);
                                     text-align: left;
                                 }
                             }
@@ -8717,6 +8779,40 @@ main {
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    .card-online-payment-page {
+        .card-online-payment-form {
+            align-self: center;
+            width: 100%;
+            min-width: 0;
+
+            .form-body {
+                .form-entry {
+                    &.amount-field {
+                        .form-entry-field {
+                            .invalid-message {
+                                $shift: calc(0.4em + $form-field-btn-width + $form-field-btn-margin-right);
+
+                                left: $shift;
+                                width: calc(100% - $shift);
+                            }
+                        }
+                    }
+
+                    .form-entry-label {
+                        min-width: 92px;
+                    }
+                    .form-entry-field {
+                        .invalid-message {
+                            left: 0.4em;
+                            top: calc(100% + 0.1em);
+                            width: calc(100% - 0.4em);
                         }
                     }
                 }

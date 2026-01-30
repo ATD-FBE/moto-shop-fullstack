@@ -231,7 +231,7 @@ export const handleOrderRequest = async (req, res, next) => {
 };
 
 /// Загрузка доступного на складе количества товаров в заказе ///
-export const handleOrderItemsAvailableRequest = async (req, res, next) => {
+export const handleOrderItemsAvailabilityRequest = async (req, res, next) => {
     const orderId = req.params.orderId;
 
     if (!typeCheck.objectId(orderId)) {
@@ -316,7 +316,7 @@ export const handleOrderRepeatRequest = async (req, res, next) => {
     }
 };
 
-/// Изменение внутренней заметки заказа (SEE) ///
+/// Изменение внутренней заметки заказа (SSE у клиента) ///
 export const handleOrderInternalNoteUpdateRequest = async (req, res, next) => {
     // Предварительная проверка формата данных
     const orderId = req.params.orderId;
@@ -381,7 +381,7 @@ export const handleOrderInternalNoteUpdateRequest = async (req, res, next) => {
     }
 };
 
-/// Изменение деталей подтверждённого заказа (SEE) ///
+/// Изменение деталей подтверждённого заказа (SSE у клиента) ///
 export const handleOrderDetailsUpdateRequest = async (req, res, next) => {
     const dbUser = req.dbUser;
 
@@ -536,7 +536,7 @@ export const handleOrderDetailsUpdateRequest = async (req, res, next) => {
     }
 };
 
-/// Изменение товаров подтверждённого заказа (SEE) ///
+/// Изменение товаров подтверждённого заказа (SSE у клиента) ///
 export const handleOrderItemsUpdateRequest = async (req, res, next) => {
     const dbUser = req.dbUser;
 
@@ -813,7 +813,7 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
     }
 };
 
-/// Изменение статуса заказа (SEE) ///
+/// Изменение статуса заказа (SSE у клиента) ///
 export const handleOrderStatusUpdateRequest = async (req, res, next) => {
     const dbUser = req.dbUser;
     const orderId = req.params.orderId;

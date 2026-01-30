@@ -26,7 +26,6 @@ const slugValidation = /^[a-z0-9_-]{2,}$/;
 const skuValidation = /^[A-Z]{2,5}-\d{2,5}$/;
 const phoneValidation = /^(\+7|8)\d{10}$/;
 const cvcValidation = /^\d{3,4}$/;
-const expiryMonthValidation = /^(0[1-9]|1[0-2])$/;
 
 const alwaysPassValidation = () => true;
 
@@ -63,7 +62,27 @@ const providerValidation = (val) =>
 
 const cardNumberValidation = (val) => /^\d{16}$/.test(val.replace(/\s/g, ''));
 
-const expiryYearValidation = (val) => val >= new Date().getFullYear() % 100;
+const expiryDateValidation = (val, context = {}) => {
+    const { split } = context;
+
+    const cleanedVal = val.replace(/\s/g, '');
+    const [mm, yy] = cleanedVal.split(split);
+
+    if (!/^(0[1-9]|1[0-2])$/.test(mm)) return false;
+    if (!/^\d{2}$/.test(yy)) return false;
+
+    const month = Number(mm);
+    const year = Number(yy);
+
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear() % 100;
+
+    if (year < currentYear) return false;
+    if (year === currentYear && month < currentMonth) return false;
+
+    return true;
+};
 
 export const validationRules = {
     auth: {
@@ -176,8 +195,7 @@ export const validationRules = {
         failureReason: textValidation,
         cardNumber: cardNumberValidation,
         cvc: cvcValidation,
-        expiryMonth: expiryMonthValidation,
-        expiryYear: expiryYearValidation
+        expiryDate: expiryDateValidation
     },
     refund: {
         method: refundMethodValidation,
@@ -519,11 +537,8 @@ export const fieldErrorMessages = {
         cvc: {
             default: 'Некорректный CVC'
         },
-        expiryMonth: {
-            default: 'Некорректный месяц действия карты'
-        },
-        expiryYear: {
-            default: 'Некорректный год действия карты'
+        expiryDate: {
+            default: 'Срок действия карты указан неверно'
         }
     },
     

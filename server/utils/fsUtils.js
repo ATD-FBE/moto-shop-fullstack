@@ -10,7 +10,7 @@ export const cleanupFiles = async (filePaths, req) => {
                 await fsp.unlink(path);
             } catch (err) {
                 if (err.code === 'ENOENT') return;
-                log.error(`${req.logCtx} - Ошибка удаления файла "${path}": ${err.message}`);
+                log.error(`${req.logCtx} - Ошибка удаления файла "${path}":`, err);
             }
         })
     );
@@ -22,6 +22,6 @@ export const cleanupFolder = async (folderPath, req) => {
     try {
         await fsp.rm(folderPath, { recursive: true, force: true });
     } catch (err) {
-        log.error(`${req.logCtx} - Не удалось удалить папку ${folderPath}: ${err.message}`);
+        log.error(`${req.logCtx} - Не удалось удалить папку ${folderPath}:`, err);
     }
 };

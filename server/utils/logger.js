@@ -1,28 +1,44 @@
 import winston from 'winston';
 
+const prepareInfo = (info) => {
+    const { timestamp, level, message, stack, ...meta } = info;
+    const stackData = stack ? `\n${stack}` : '';
+    const metaData = Object.keys(meta).length ? `\n${JSON.stringify(meta, null, 4)}` : '';
+    return { timestamp, level: level, message, stackData, metaData };
+};
+
+const timestampFormat = 'YYYY-MM-DD HH:mm:ss';
+
 const loggerConfig = {
     level: 'info',
 
-    format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.timestamp({
-            format: 'YYYY-MM-DD HH:mm:ss'
-        }),
-        winston.format.printf(
-            i => `${i.timestamp} ${i.level}: ${i.message}${i.stack ? (' ' + i.stack) : ''}`
-        )
+    format: winston.format.combine( // Общий формат (файлы и консоль)
+        winston.format.timestamp({ format: timestampFormat }),
+        winston.format.splat(), // Для более двух аргументов в логгере (meta - обязательно объекты!)
+        winston.format.printf(info => {
+            const { timestamp, level, message, stackData, metaData } = prepareInfo(info);
+            return `[${timestamp}] [${level.toUpperCase()}]: ${message}${stackData}${metaData}\n`;
+        })
     ),
 
     transports: [
-        new winston.transports.File({
-            filename: '_logs/combined.log'
-        }),
+        ...(process.env.NODE_ENV !== 'production'
+            ? [new winston.transports.File({ filename: '_logs/combined.log' })]
+            : []),
         new winston.transports.File({
             filename: '_logs/error.log',
             level: 'error'
         }),
         new winston.transports.Console({
-            format: winston.format.simple()
+            format: winston.format.combine( // Персональный формат для консоли
+                winston.format.colorize(),
+                winston.format.timestamp({ format: timestampFormat }),
+                winston.format.splat(), // Для более двух аргументов в логгере (meta - обязательно объекты!)
+                winston.format.printf(info => {
+                    const { timestamp, level, message, stackData, metaData } = prepareInfo(info);
+                    return `${level}: ${message} - { timestamp: ${timestamp} }${stackData}${metaData}`;
+                })
+            )
         })
     ]
 };

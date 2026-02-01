@@ -91,8 +91,8 @@ process.on('uncaughtException', (err) => {
     log.error('Uncaught exception:', err);
     if (isCriticalError(err)) shutdownMongoDB('uncaughtException');
 });
-process.on('unhandledRejection', (reason, promise) => {
-    log.error('Unhandled Rejection at:', promise, 'reason:', reason);
+process.on('unhandledRejection', (reason) => {
+    log.error('Unhandled Rejection в коде', reason instanceof Error ? reason : { reason });
     if (isCriticalError(reason)) shutdownMongoDB('unhandledRejection');
 });
 process.on('exit', () => log.info('Process exit'));

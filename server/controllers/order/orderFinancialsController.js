@@ -131,11 +131,12 @@ export const handleOrderFinancialsEventVoidRequest = async (req, res, next) => {
 
     // Предварительная проверка формата данных
     const orderId = req.params.orderId;
-    const { eventId, voidedNote } = req.body ?? {};
+    const eventId = req.params.eventId;
+    const { voidedNote } = req.body ?? {};
 
     const inputTypeMap = {
         orderId: { value: orderId, type: 'objectId' },
-        eventId: { value: eventId, type: 'objectId', form: true },
+        eventId: { value: eventId, type: 'objectId', form: true }, // Значение из формы вынесено в параметр
         voidedNote: { value: voidedNote, type: 'string', optional: true, form: true },
     };
 
@@ -1027,7 +1028,8 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
             refundResult.errors.forEach(({ task, reason }) => {
                 log.error(
                     `Ошибка создания транзакции возврата для заказа ${orderLbl} ` +
-                    `по оплате ${task.action.transactionId}:`, reason
+                    `по оплате ${task.action.transactionId}:`,
+                    reason instanceof Error ? reason : { errorDetails: reason }
                 );
             });
         }
@@ -1096,8 +1098,6 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
 
 /// Обработка уведомления (вебхука) от онлайн-провайдера (банковская карта) ///
 export const handleWebhook = async (req, res, next) => {
-    console.log('Webhook:', req.body);
-
     // Определение провайдера по заголовку
     const provider = detectWebhookProvider(req);
 
@@ -1105,11 +1105,11 @@ export const handleWebhook = async (req, res, next) => {
         return safeSendResponse(req, res, 200, { message: 'Неизвестный провайдер' });
     }
 
-    // Проверка подписи заголовка
+    // Проверка подлинности вебхука
     const isValidAuthenticity = verifyWebhookAuthenticity(provider, req);
 
     if (!isValidAuthenticity) {
-        return safeSendResponse(req, res, 200, { message: '' });
+        return safeSendResponse(req, res, 200, { message: 'Подлинность вебхука не подтверждена' });
     }
 
     // Нормализация данных в теле запроса

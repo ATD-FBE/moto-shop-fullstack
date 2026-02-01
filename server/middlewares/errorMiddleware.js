@@ -29,13 +29,13 @@ export function globalErrorHandler(err, req, res, next) {
     const statusCode = err.statusCode || 500;
     const isServerError = statusCode >= 500;
     const errorMessage = err.message || (isServerError ? 'Ошибка сервера!' : 'Ошибка запроса!');
-    const requestContext = `${req.logCtx} Status: ${statusCode}`;
+    const fullReqCtx = `${req.logCtx} - Status: ${statusCode}`;
 
     if (isServerError) {
-        log.error(`${requestContext} - Ошибка сервера:\n${err.stack}`);
+        log.error(`${fullReqCtx} - Ошибка сервера:`, err);
     } else {
         const errorDescription = statusCode === 408 ? 'Таймаут запроса' : 'Ошибка клиента';
-        log.warn(`${requestContext} - ${errorDescription}: ${err.message}`);
+        log.warn(`${fullReqCtx} - ${errorDescription}: ${err.message}`);
     }
 
     safeSendResponse(req, res, statusCode, { message: errorMessage });

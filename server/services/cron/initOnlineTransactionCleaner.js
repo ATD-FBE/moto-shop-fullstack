@@ -108,8 +108,8 @@ export const startInitOnlineTransactionCleaner = () => {
                     `${LOG_CTX} Обработано зависших заказов: ${stuckDbOrders.length}, ` +
                     `транзакций найдено: ${allNormalizedTransactions.length}`
                 );
-            } catch (err) {
-                log.error(`${LOG_CTX} Ошибка cron:`, err);
+            } catch (cronErr) {
+                log.error(`${LOG_CTX} Ошибка cron:`, cronErr);
             }
         }
     );

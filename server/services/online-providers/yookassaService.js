@@ -11,6 +11,39 @@ const yooKassaCheckout = new YooCheckout({
     secretKey: config.yooKassaSecretKey
 });
 
+const YOOKASSA_WEBHOOK_IPS = [
+    '185.71.76.0/27',
+    '185.71.77.0/27',
+    '77.75.153.0/25',
+    '77.75.156.11',
+    '77.75.156.35',
+    '77.75.154.128/25',
+    '2a02:5180::/32'
+];
+
+const checkYooKassaIp = (req) => {
+    const incomingIp =
+        req.headers['x-forwarded-for'] ||
+        req.socket?.remoteAddress ||
+        req.connection?.remoteAddress ||
+        '';
+
+    let cleanIp = (Array.isArray(incomingIp) ? incomingIp[0] : incomingIp.split(',')[0]).trim();
+
+    // Удаление ::ffff: из IP, IPv6 не затрагивается (не имеет точек)
+    if (cleanIp.startsWith('::ffff:') && cleanIp.includes('.')) {
+        cleanIp = cleanIp.substring(7);
+    }
+
+    return ipRangeCheck(cleanIp, YOOKASSA_WEBHOOK_IPS);
+};
+
+export const verifyYooKassaWebhookAuthenticity = (req) => {
+    const isIpValid = checkYooKassaIp(req);
+    if (!isIpValid) log.warn(`${req.logCtx} - YooKassa webhook: IP вне белого списка`);
+    return isIpValid; 
+};
+
 export const createYooKassaPayment = async ({
     paymentToken,
     amount,
@@ -47,8 +80,6 @@ export const createYooKassaPayment = async ({
 
     try {
         const payment = await yooKassaCheckout.createPayment(payload, idempotenceKey);
-
-        console.log(payment);
 
         return {
             paymentId: payment.id,
@@ -110,41 +141,6 @@ export const createYooKassaRefunds = async (refundTasks, params) => {
     });
 
     return { refundIds, errors };
-};
-
-export const YOOKASSA_WEBHOOK_IPS = [
-    '185.71.76.0/27',
-    '185.71.77.0/27',
-    '77.75.153.0/25',
-    '77.75.156.11',
-    '77.75.156.35',
-    '77.75.154.128/25',
-    '2a02:5180::/32'
-];
-
-export const checkYooKassaIp = (req) => {
-    const incomingIp =
-        req.headers['x-forwarded-for'] ||
-        req.socket?.remoteAddress ||
-        req.connection?.remoteAddress ||
-        '';
-
-    let cleanIp = (Array.isArray(incomingIp) ? incomingIp[0] : incomingIp.split(',')[0]).trim();
-
-    // Удаление ::ffff: из IP, IPv6 не затрагивается (не имеет точек)
-    if (cleanIp.startsWith('::ffff:') && cleanIp.includes('.')) {
-        cleanIp = cleanIp.substring(7);
-    }
-
-    console.log(`[Webhook] Проверка IP: ${cleanIp}`);
-
-    return ipRangeCheck(cleanIp, YOOKASSA_WEBHOOK_IPS);
-};
-
-export const verifyYooKassaWebhookAuthenticity = (req) => {
-    const isIpValid = checkYooKassaIp(req);
-    if (!isIpValid) log.warn('YooKassa webhook: IP вне белого списка');
-    return isIpValid; 
 };
 
 export const normalizeYooKassaWebhook = (payload) => {

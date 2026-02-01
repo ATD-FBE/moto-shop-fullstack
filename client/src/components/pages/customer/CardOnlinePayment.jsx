@@ -12,6 +12,7 @@ import { routeConfig } from '@/config/appRouting.js';
 import { YOOKASSA_SCRIPT } from '@/config/externalScripts.js';
 import { setIsNavigationBlocked } from '@/redux/slices/uiSlice.js';
 import { parseRouteParams } from '@/helpers/routeHelpers.js';
+import { processFormattedFieldDeletion, calcFormattedFieldCursorPos } from '@/helpers/formHelpers.js';
 import { toKebabCase, getFieldInfoClass } from '@/helpers/textHelpers.js';
 import { logRequestStatus } from '@/helpers/requestLogger.js';
 import { validationRules, fieldErrorMessages } from '@shared/validation.js';
@@ -67,26 +68,6 @@ const getSubmitStates = (hasConfirmationUrl) => {
     return { submitStates, lockedStatuses: new Set(lockedStatuses) };
 };
 
-const processFormattedFieldDeletion = (e, context) => {
-    const { value, cursorPos, selectionStart, selectionEnd, format, charRegex } = context;
-    if (e.key !== 'Backspace' || !value || !cursorPos) return null;
-
-    let charToDeleteIdx = cursorPos - 1;
-    while (charToDeleteIdx >= 0 && !charRegex.test(value[charToDeleteIdx])) {
-        charToDeleteIdx--;
-    }
-    if (charToDeleteIdx < 0) return null;
-
-    // Вырезание charToDeleteIdx из значения инпута
-    const newValue = value.slice(0, charToDeleteIdx) + value.slice(charToDeleteIdx + 1);
-
-    return {
-        preventDefault: true, // Браузер не изменит value инпута (onChange не сработает)
-        nextValue: format ? format(newValue) : newValue,
-        nextCursorPos: charToDeleteIdx // Не меняется при format, одинаковые паттерны
-    };
-};
-
 const fieldConfigs = [
     {
         name: 'provider',
@@ -111,6 +92,8 @@ const fieldConfigs = [
         maxLength: 19, // 4 * 4 цифры + 3 пробела между группами
         placeholder: '0000 0000 0000 0000',
         autoComplete: 'cc-number',
+        hasFormatSeparators: true,
+        charRegex: /\d/,
         format: (value) => {
             const digits = value.replace(/\D/g, '').slice(0, 16);
         
@@ -118,7 +101,6 @@ const fieldConfigs = [
                 ? digits.replace(/(\d{4})/g, '$1 ')
                 : digits.replace(/(\d{4})(?=\d)/g, '$1 ');
         },
-        processBackspace: (e, ctx) => processFormattedFieldDeletion(e, { ...ctx, charRegex: /\d/ }),
         submitTransform: (value) => value.replace(/\s/g, '')
     },
     {
@@ -148,8 +130,9 @@ const fieldConfigs = [
         placeholder: 'ММ / ГГ',
         autoComplete: 'cc-exp',
         trim: true,
+        hasFormatSeparators: true,
+        charRegex: /\d/,
         format: (value) => value.replace(/\D/g, '').replace(/(\d{2})/, '$1 / ').slice(0, 7),
-        processBackspace: (e, ctx) => processFormattedFieldDeletion(e, { ...ctx, charRegex: /\d/ }),
         submitTransform: (value) => value.replace(/\s/g, '')
     }
 ];
@@ -181,7 +164,6 @@ const fieldsStateReducer = (state, action) => {
             for (const name in payload) {
                 newState[name] = { ...(state[name] ?? {}), ...payload[name] };
             }
-            console.log(newState);
             return newState;
 
         default:
@@ -264,11 +246,9 @@ export default function CardOnlinePayment() {
     };
 
     const handleFieldChange = (e) => {
-        const { name, type, value } = e.target;
-        const { format } = fieldConfigMap[name] ?? {};
+        const { name, type, value, selectionStart } = e.target;
+        const { format, hasFormatSeparators, charRegex = /\d/ } = fieldConfigMap[name] ?? {};
         let processedValue;
-
-        console.log('+ change');
 
         if (format) {
             processedValue = format(value)
@@ -282,33 +262,45 @@ export default function CardOnlinePayment() {
             type: 'UPDATE',
             payload: { [name]: { value: processedValue, uiStatus: '', error: '' } }
         });
+        
+        // Пересчёт и установка позиции курсора при форматировании с разделителями после ререндера
+        if (format && hasFormatSeparators) {
+            requestAnimationFrame(() => {
+                const newCursorPos = calcFormattedFieldCursorPos(
+                    value,
+                    selectionStart,
+                    processedValue,
+                    charRegex
+                );
+                e.target.setSelectionRange(newCursorPos, newCursorPos);
+            });
+        }
     };
 
     const handleFieldKeyDown = (e) => {
-        const { name, value, selectionStart } = e.target;
+        const { name, value, selectionStart, selectionEnd } = e.target;
         const config = fieldConfigMap[name];
-        if (!config?.processBackspace) return;
+        if (!config?.hasFormatSeparators) return;
     
-        const result = config.processBackspace(e, {
+        const result = processFormattedFieldDeletion(e, {
             value,
-            cursorPos: selectionStart,
+            selectionStart,
+            selectionEnd,
+            charRegex: config.charRegex,
             format: config.format
         });
         if (!result) return;
-
-        console.log('+ backspace');
     
         if (result.preventDefault) {
             e.preventDefault();
         }
-
-        console.log(result.nextValue);
     
         dispatchFieldsState({
             type: 'UPDATE',
             payload: { [name]: { value: result.nextValue, uiStatus: '', error: '' } }
         });
     
+        // Установка позиции курсора после ререндера
         requestAnimationFrame(() => {
             e.target.setSelectionRange(result.nextCursorPos, result.nextCursorPos);
         });

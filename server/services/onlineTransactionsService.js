@@ -6,6 +6,7 @@ import {
     fetchYooKassaExternalTransactions,
     normalizeYooKassaExternalTransaction
 } from './online-providers/yookassaService.js';
+import log from '../utils/logger.js';
 import { CARD_ONLINE_PROVIDER } from '../../shared/constants.js';
 
 export const detectWebhookProvider = (req) => {
@@ -17,6 +18,7 @@ export const detectWebhookProvider = (req) => {
         return CARD_ONLINE_PROVIDER.YOOKASSA;
     }
 
+    log.warn(`${req.logCtx} - Провайдер вебхука не определён:`, { headers: req.headers, body: req.body });
     return null;
 };
 

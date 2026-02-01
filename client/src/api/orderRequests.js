@@ -1,23 +1,25 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
-//GET /api/orders - Получить список заказов. История заказов.
-//GET /api/orders/:orderId - Получить заказ по id. Конкретный заказ клиента или админа.
-//GET /api/orders/:orderId/items/availability - Получить доступное кол-во заказанных товаров на складе.
-//GET /api/orders/:orderId/invoice - Получить счёт по заказу.
-//GET /api/orders/:orderId/financials/remaining - Получить остаток стоимости для оплаты онлайн.
-//POST /api/orders/webhook - Обработка ответа платёжки при оплате картой онлайн.
-//POST /api/orders/:orderId/repeat - Повторить заказ клиентом.
-//POST /api/orders/:orderId/payment/online - Внести оплату клиентом онлайн-картой.
-//POST /api/orders/:orderId/refund/online/full - Сделать возврат админом всех платежей онлайн-картами.
-//PATCH /api/orders/:orderId - Изменить данные заказа админом (кроме товаров, статуса, оплаты, заметки).
-//PATCH /api/orders/:orderId/items - Изменить количество товаров в заказе админом.
-//PATCH /api/orders/:orderId/internal-note - Изменить внутреннюю заметку в заказе админом.
-//PATCH /api/orders/:orderId/financials/events/void - Аннулирование записи в истории финансов админом.
-//PATCH /api/orders/:orderId/status - Изменить статус заказа админом.
-//PATCH /api/orders/:orderId/payment/offline - Внести результат оплаты админом оффлайн-методом.
-//PATCH /api/orders/:orderId/refund/offline - Внести результат возврата админом оффлайн-методом.
-//DELETE /api/orders/:orderId - Удалить отменённый заказ админом. По запросу клиента или правилам.
+/*
+GET /api/orders - Получить список заказов. История заказов.
+GET /api/orders/:orderId - Получить заказ по id. Конкретный заказ клиента или админа.
+GET /api/orders/:orderId/items/availability - Получить доступное кол-во заказанных товаров на складе.
+GET /api/orders/:orderId/financials/invoice/pdf - Получить счёт по заказу.
+GET /api/orders/:orderId/financials/remaining - Получить остаток стоимости для оплаты онлайн.
+POST /api/orders/webhook - Обработка ответа платёжки при оплате картой онлайн.
+POST /api/orders/:orderId/repeat - Повторить заказ клиентом.
+POST /api/orders/:orderId/financials/payments/online - Внести оплату клиентом онлайн-картой.
+POST /api/orders/:orderId/financials/refunds/online/full - Сделать возврат админом всех платежей онлайн-картами.
+PATCH /api/orders/:orderId - Изменить данные заказа админом (кроме товаров, статуса, оплаты, заметки).
+PATCH /api/orders/:orderId/items - Изменить количество товаров в заказе админом.
+PATCH /api/orders/:orderId/internal-note - Изменить внутреннюю заметку в заказе админом.
+PATCH /api/orders/:orderId/financials/events/:eventId/void - Аннулирование записи в истории финансов админом.
+PATCH /api/orders/:orderId/status - Изменить статус заказа админом.
+PATCH /api/orders/:orderId/financials/payments/offline - Внести результат оплаты админом оффлайн-методом.
+PATCH /api/orders/:orderId/financials/refunds/offline - Внести результат возврата админом оффлайн-методом.
+DELETE /api/orders/:orderId - Удалить отменённый заказ админом. По запросу клиента или правилам.
+*/
 
 /// Загрузка списка заказов для одной страницы ///
 export const sendOrderListRequest = (urlParams) => async (dispatch) => {
@@ -165,7 +167,7 @@ export const sendOrderStatusUpdateRequest = (orderId, requestData) => async (dis
 
 /// Генерация и загрузка счёта заказа в pdf ///
 export const sendOrderInvoicePdfRequest = (orderId) => async (dispatch) => {
-    const url = `/api/orders/${orderId}/invoice/pdf`;
+    const url = `/api/orders/${orderId}/financials/invoice/pdf`;
     const options = { method: 'GET' };
     const errorPrefix = 'Не удалось загрузить счёт';
     const config = {
@@ -196,12 +198,13 @@ export const sendOrderRemainingAmountRequest = (orderId) => async (dispatch) => 
 };
 
 /// Аннулирование записи успешного финансового события в заказе (SSE у клиента) ///
-export const sendOrderFinancialsEventVoidRequest = (orderId, formFields) => async (dispatch) => {
-    const url = `/api/orders/${orderId}/financials/events/void`;
+export const sendOrderFinancialsEventVoidRequest = (params, payload) => async (dispatch) => {
+    const { orderId, eventId } = params;
+    const url = `/api/orders/${orderId}/financials/events/${eventId}/void`;
     const options = {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formFields)
+        body: JSON.stringify(payload)
     };
     const errorPrefix = 'Не удалось аннулировать запись в истории финансов заказа';
     const config = {
@@ -217,7 +220,7 @@ export const sendOrderFinancialsEventVoidRequest = (orderId, formFields) => asyn
 
 /// Внесение оплаты за заказ оффлайн-методом (SSE у клиента) ///
 export const sendOrderOfflinePaymentApplyRequest = (orderId, requestData) => async (dispatch) => {
-    const url = `/api/orders/${orderId}/payment/offline`;
+    const url = `/api/orders/${orderId}/financials/payments/offline`;
     const options = {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -237,7 +240,7 @@ export const sendOrderOfflinePaymentApplyRequest = (orderId, requestData) => asy
 
 /// Возврат средств за заказ оффлайн-методом (SSE у клиента) ///
 export const sendOrderOfflineRefundApplyRequest = (orderId, requestData) => async (dispatch) => {
-    const url = `/api/orders/${orderId}/refund/offline`;
+    const url = `/api/orders/${orderId}/financials/refunds/offline`;
     const options = {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -257,7 +260,7 @@ export const sendOrderOfflineRefundApplyRequest = (orderId, requestData) => asyn
 
 /// Создание онлайн платежа для банковской карты ///
 export const sendOrderOnlinePaymentCreateRequest = (orderId, requestData) => async (dispatch) => {
-    const url = `/api/orders/${orderId}/payment/online`;
+    const url = `/api/orders/${orderId}/financials/payments/online`;
     const options = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -277,7 +280,7 @@ export const sendOrderOnlinePaymentCreateRequest = (orderId, requestData) => asy
 
 /// Создание возвратов для банковских карт ///
 export const sendOrderOnlineRefundsCreateRequest = (orderId) => async (dispatch) => {
-    const url = `/api/orders/${orderId}/refund/online/full`;
+    const url = `/api/orders/${orderId}/financials/refunds/online/full`;
     const options = { method: 'POST' };
     const errorPrefix = 'Не удалось создать онлайн-возвраты на карты';
     const config = {

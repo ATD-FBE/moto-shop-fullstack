@@ -35,7 +35,7 @@ import { logRequestStatus } from '@/helpers/requestLogger.js';
 import { getAppliedDiscountData } from '@shared/commonHelpers.js';
 import { CLIENT_CONSTANTS, MIN_ORDER_AMOUNT } from '@shared/constants.js';
 
-const { DATA_LOAD_STATUS, REQUEST_STATUS, PRODUCT_IMAGE_PLACEHOLDER } = CLIENT_CONSTANTS;
+const { DATA_LOAD_STATUS, REQUEST_STATUS, SCREEN_SIZE, PRODUCT_IMAGE_PLACEHOLDER } = CLIENT_CONSTANTS;
  
 export default function Cart() {
     const { isTouchDevice, screenSize, dashboardPanelActive } = useSelector(state => state.ui);
@@ -612,10 +612,12 @@ function CartItemList({
 
     // Расчёт максимальной ширины для колонок товара product-prices и product-total-amounts
     const maxPricesWidth = useMeasureMaxWidth(visiblePricesContentElements, {
-        enabled: ['large'].includes(screenSize) && loadStatus === DATA_LOAD_STATUS.READY
+        enabled: [SCREEN_SIZE.LARGE].includes(screenSize) && loadStatus === DATA_LOAD_STATUS.READY
     });
     const maxTotalsWidth = useMeasureMaxWidth(visibleTotalsContentElements, {
-        enabled: ['medium', 'large'].includes(screenSize) && loadStatus === DATA_LOAD_STATUS.READY
+        enabled:
+            [SCREEN_SIZE.MEDIUM, SCREEN_SIZE.LARGE].includes(screenSize) &&
+            loadStatus === DATA_LOAD_STATUS.READY
     });
 
     // Очистка рефов при обновлении данных корзины для пересчёта ширин контента

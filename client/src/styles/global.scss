@@ -21,7 +21,6 @@
     --load-status-min-height: 120px;
     --fast-animation-duration: 160ms;
     --medium-animation-duration: 320ms;
-    --modal-animation-duration: var(--fast-animation-duration);
 }
 
 $color-main-light: rgb(230, 235, 240);
@@ -163,7 +162,22 @@ $transition-medium-set: var(--medium-animation-duration) ease-in-out;
         }
     }
 }
-@mixin form-field-wrapper() {
+@mixin form-entry-label-base() {
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+
+    .optional {
+        display: block;
+        color: $color-main-enhanced;
+        font-size: 0.75em;
+        font-weight: bold;
+        font-style: italic;
+        line-height: 1;
+        opacity: 0.85;
+    }
+}
+@mixin form-entry-field-base() {
     position: relative;
     text-align: right;
 
@@ -769,18 +783,38 @@ ul {
     list-style-position: inside;
 }
 
-.modal-backdrop-portal {
+.global-loader {
     position: fixed;
-    inset: 0;
+    inset: 0; // top: 0; right: 0; bottom: 0; left: 0;
     display: flex;
     justify-content: center;
     align-items: center;
     width: 100vw;
     height: 100vh;
-    background-color: rgba($color-main-dark, 0.8);
     z-index: 9999;
+    background-color: rgba($color-main-enabled, 0.4);
     opacity: 0;
-    transition: opacity var(--modal-animation-duration) ease;
+    pointer-events: none;
+    transition: opacity $transition-fast-set;
+
+    &.visible {
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
+
+.modal-backdrop-portal {
+    position: fixed;
+    inset: 0; // top: 0; right: 0; bottom: 0; left: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+    background-color: rgba($color-main-dark, 0.8);
+    opacity: 0;
+    transition: opacity $transition-fast-set;
 
     &.visible {
         opacity: 1;
@@ -2520,13 +2554,11 @@ mark.highlighted-text {
                                         }
                 
                                         .form-entry-label {
+                                            @include form-entry-label-base();
                                             font-size: 9pt;
-                                            line-height: 1.1;
-                                            letter-spacing: -0.02em;
-                                            overflow-wrap: anywhere;
                                         }
                                         .form-entry-field {
-                                            @include form-field-wrapper();
+                                            @include form-entry-field-base();
                 
                                             .invalid-message {
                                                 left: 0.4em;
@@ -2652,13 +2684,11 @@ mark.highlighted-text {
                                 }
                 
                                 .form-entry-label {
+                                    @include form-entry-label-base();
                                     width: 30%;
-                                    line-height: 1.1;
-                                    letter-spacing: -0.02em;
-                                    overflow-wrap: anywhere;
                                 }
                                 .form-entry-field {
-                                    @include form-field-wrapper();
+                                    @include form-entry-field-base();
                                     width: 70%;
                 
                                     .invalid-message,
@@ -2732,13 +2762,11 @@ mark.highlighted-text {
                                 }
                 
                                 .form-entry-label {
+                                    @include form-entry-label-base();
                                     width: 30%;
-                                    line-height: 1.1;
-                                    letter-spacing: -0.02em;
-                                    overflow-wrap: anywhere;
                                 }
                                 .form-entry-field {
-                                    @include form-field-wrapper();
+                                    @include form-entry-field-base();
                                     width: 70%;
                 
                                     .invalid-message {
@@ -2899,22 +2927,42 @@ mark.highlighted-text {
 .breadcrumbs-nav {
     align-self: flex-start;
     padding: 10px;
+    font-size: 11pt;
+
+    .prev-link-crumb {
+        display: inline-block;
+        text-decoration: none;
+        @include link-transition($color-main-dark, $color-main-enhanced);
+
+        .icon {
+            margin-right: 0.4em;
+        }
+        .label {
+            text-decoration: underline;
+        }
+    }
 
     ul {
         display: flex;
         list-style: none;
-        font-size: 11pt;
 
         li {
-            .breadcrumb-separator {
-                margin: 0 0.4em;
-                color: rgb(60, 60, 65);
+            display: inline-flex;
+            align-items: center;
+
+            &:not(:last-child) {
+                margin-right: 0.4em;
             }
-            .last-crumb {
-                color: $color-main-dark-active;
+
+            .breadcrumb-separator {
+                margin-right: 0.4em;
+                color: rgb(60, 60, 65);
             }
             .link-crumb {
                 @include link-transition($color-main-dark, $color-main-enhanced);
+            }
+            .last-crumb {
+                color: $color-main-dark-active;
             }
         }
     }
@@ -3004,15 +3052,15 @@ mark.highlighted-text {
             box-shadow: none;
         }
         
-        & > *:not(.logo-loader, .burger-menu-container) {
+        & > *:not(.resource-loader, .burger-menu-container) {
             flex: 0 1 100%;
         }
-        & > :is(.logo-loader, .burger-menu-container) {
+        & > :is(.resource-loader, .burger-menu-container) {
             flex: none;
         }
     }
 
-    .logo-loader {
+    .resource-loader {
         display: flex;
         justify-content: center;
         align-items: center;
@@ -3031,7 +3079,7 @@ mark.highlighted-text {
                 opacity: 1;
             }
         }
-        .global-loader {
+        .resource-loader-spinner {
             position: absolute;
             opacity: 0;
             visibility: hidden;
@@ -4907,13 +4955,11 @@ main {
                 }
 
                 .form-entry-label {
+                    @include form-entry-label-base();
                     white-space: normal;
-                    line-height: 1.1;
-                    letter-spacing: -0.02em;
-                    overflow-wrap: anywhere;
                 }
                 .form-entry-field {
-                    @include form-field-wrapper();
+                    @include form-entry-field-base();
                     flex-shrink: 0;
                     width: 280px;
     
@@ -5120,14 +5166,12 @@ main {
                                     }
                     
                                     .form-entry-label {
+                                        @include form-entry-label-base();
                                         width: 35%;
                                         min-width: 108px;
-                                        line-height: 1.1;
-                                        letter-spacing: -0.02em;
-                                        overflow-wrap: anywhere;
                                     }
                                     .form-entry-field {
-                                        @include form-field-wrapper();
+                                        @include form-entry-field-base();
                                         width: 65%;
                         
                                         .invalid-message {
@@ -5430,13 +5474,11 @@ main {
     
                     .form-entry-label,
                     .form-entry-checkbox-label {
+                        @include form-entry-label-base();
                         width: 28%;
-                        line-height: 1.1;
-                        letter-spacing: -0.02em;
-                        overflow-wrap: anywhere;
                     }
                     .form-entry-field {
-                        @include form-field-wrapper();
+                        @include form-entry-field-base();
                         width: 72%;
         
                         .invalid-message {
@@ -5529,13 +5571,11 @@ main {
                             }
             
                             .form-entry-label {
+                                @include form-entry-label-base();
                                 width: 25%;
-                                line-height: 1.1;
-                                letter-spacing: -0.02em;
-                                overflow-wrap: anywhere;
                             }
                             .form-entry-field {
-                                @include form-field-wrapper();
+                                @include form-entry-field-base();
                                 display: flex;
                                 width: 75%;
                 
@@ -5629,7 +5669,7 @@ main {
                                 }
                                 .discount-form {
                                     .form-field {
-                                        @include form-field-wrapper();
+                                        @include form-entry-field-base();
                                         display: flex;
                                         align-items: center;
                     
@@ -5955,13 +5995,11 @@ main {
                     }
     
                     .form-entry-label {
+                        @include form-entry-label-base();
                         width: 28%;
-                        line-height: 1.1;
-                        letter-spacing: -0.02em;
-                        overflow-wrap: anywhere;
                     }
                     .form-entry-field {
-                        @include form-field-wrapper();
+                        @include form-entry-field-base();
                         display: flex;
                         align-items: center;
                         width: 72%;
@@ -6146,7 +6184,7 @@ main {
                             }
     
                             .form-entry-field {
-                                @include form-field-wrapper();
+                                @include form-entry-field-base();
                                 width: 100%;
     
                                 .invalid-message {
@@ -6206,10 +6244,8 @@ main {
                         padding-bottom: 4px;
                         
                         .form-entry-label {
+                            @include form-entry-label-base();
                             width: 35%;
-                            line-height: 1.1;
-                            letter-spacing: -0.02em;
-                            overflow-wrap: anywhere;
 
                             .info {
                                 position: relative;
@@ -6221,7 +6257,7 @@ main {
                         }
                         
                         .form-entry-field {
-                            @include form-field-wrapper();
+                            @include form-entry-field-base();
                             display: flex;
                             justify-content: flex-end;
                             width: 65%;
@@ -6842,11 +6878,9 @@ main {
                             }
                             
                             .form-entry-label {
+                                @include form-entry-label-base();
                                 width: 22%;
                                 min-width: 136px;
-                                line-height: 1.1;
-                                letter-spacing: -0.02em;
-                                overflow-wrap: anywhere;
 
                                 @if $customer-comment {
                                     margin-top: 0.4em;
@@ -6864,7 +6898,7 @@ main {
                             }
                             
                             .form-entry-field {
-                                @include form-field-wrapper();
+                                @include form-entry-field-base();
                                 display: flex;
                                 justify-content: flex-end;
                                 width: 78%;
@@ -7420,7 +7454,7 @@ main {
 
                                     .cell-content {
                                         .form-field {
-                                            @include form-field-wrapper();
+                                            @include form-entry-field-base();
                                             display: inline-block;
                                             text-align: left;
                         
@@ -7538,10 +7572,8 @@ main {
                                 }
                 
                                 .form-entry-label {
+                                    @include form-entry-label-base();
                                     width: 30%;
-                                    line-height: 1.1;
-                                    letter-spacing: -0.02em;
-                                    overflow-wrap: anywhere;
 
                                     .info {
                                         position: relative;
@@ -7552,7 +7584,7 @@ main {
                                     }
                                 }
                                 .form-entry-field {
-                                    @include form-field-wrapper();
+                                    @include form-entry-field-base();
                                     width: 70%;
                 
                                     .invalid-message {
@@ -7663,14 +7695,12 @@ main {
                 }
 
                 .form-entry-label {
+                    @include form-entry-label-base();
                     width: 25%;
                     min-width: 120px;
-                    line-height: 1.1;
-                    letter-spacing: -0.02em;
-                    overflow-wrap: anywhere;
                 }
                 .form-entry-field {
-                    @include form-field-wrapper();
+                    @include form-entry-field-base();
                     display: flex;
                     justify-content: flex-end;
                     width: 75%;

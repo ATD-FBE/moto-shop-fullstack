@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
 import cn from 'classnames';
-import LogoLoader from './LogoLoader.jsx';
+import ResourceLoader from './ResourceLoader.jsx';
 import MainTitle from './MainTitle.jsx';
 import MainNav from './MainNav.jsx';
 import AuthNav from './AuthNav.jsx';
@@ -22,7 +22,7 @@ export default function HeaderContentLargeScreen({
     return (
         <>
             <div className={cn('header-main-panel', { 'dashboard-panel-active': isDashboardActive })}>
-                <LogoLoader />
+                <ResourceLoader />
 
                 <MainTitle />
 

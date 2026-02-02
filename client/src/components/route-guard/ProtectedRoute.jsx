@@ -1,9 +1,9 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
-import { useLocation, matchPath, Navigate } from 'react-router-dom';
+import { useLocation, Navigate } from 'react-router-dom';
 import { routeConfig } from '@/config/appRouting.js';
 
-export default function ProtectedRoute({ path, access, children }) {
+export default function ProtectedRoute({ access, children }) {
     const {
         isAuthenticated,
         user,
@@ -19,14 +19,7 @@ export default function ProtectedRoute({ path, access, children }) {
         return <Navigate to={loginPath} state={{ from: location }} replace />;
     }
 
-    // Синхронизация путей при разлогинивании
-    const matchesPath = path === '*' || matchPath({ path, end: false }, location.pathname);
-
-    if (!isAuthenticated && !matchesPath) {
-        return <div className="global-loader">Глобальный лоадер</div>;
-    }
-
-    // Защита маршрутов в соответствии их доступа и роли пользователя
+    // Защита маршрутов в соответствии с их доступом и роли пользователя
     const userRole = user?.role || 'guest';
     const isPrivilegedUser = ['admin'].includes(userRole);
     const personalPath = routeConfig[`${userRole}Personal`]?.paths[0] || '/';

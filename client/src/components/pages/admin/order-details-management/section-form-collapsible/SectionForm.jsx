@@ -92,7 +92,7 @@ const getFieldConfigs = (section) => {
             },
             {
                 name: 'middleName',
-                label: 'Отчество (опционально)',
+                label: 'Отчество',
                 elem: 'input',
                 type: 'text',
                 placeholder: 'Укажите отчество покупателя, если есть',
@@ -140,7 +140,7 @@ const getFieldConfigs = (section) => {
             },
             {
                 name: 'region',
-                label: 'Область/Регион (опционально)',
+                label: 'Область/Регион',
                 elem: 'input',
                 type: 'text',
                 placeholder: 'Укажите полное название региона',
@@ -150,7 +150,7 @@ const getFieldConfigs = (section) => {
             },
             {
                 name: 'district',
-                label: 'Район (опционально)',
+                label: 'Район',
                 elem: 'input',
                 type: 'text',
                 placeholder: 'Укажите район',
@@ -187,7 +187,7 @@ const getFieldConfigs = (section) => {
             },
             {
                 name: 'apartment',
-                label: 'Квартира (опционально)',
+                label: 'Квартира',
                 elem: 'input',
                 type: 'text',
                 placeholder: 'Укажите номер квартиры',
@@ -197,7 +197,7 @@ const getFieldConfigs = (section) => {
             },
             {
                 name: 'postalCode',
-                label: 'Почтовый индекс (опционально)',
+                label: 'Почтовый индекс',
                 elem: 'input',
                 type: 'text',
                 placeholder: 'Укажите почтовый индекс',
@@ -630,6 +630,7 @@ export default function SectionForm({
                     checkboxLabel,
                     tooltip,
                     trim,
+                    optional,
                     canApply
                 }) => {
                     const fieldId = `order-details-${section}-${toKebabCase(name)}`;
@@ -682,6 +683,7 @@ export default function SectionForm({
                                 {label}
                                 {tooltip && <span className="info" title={tooltip}>ⓘ</span>}
                                 :
+                                {optional && <small className="optional">опционально</small>}
                             </label>
 
                             <div className={cn('form-entry-field', fieldsState[name]?.uiStatus)}>

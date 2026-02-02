@@ -1,25 +1,7 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
-/*
-GET /api/orders - Получить список заказов. История заказов.
-GET /api/orders/:orderId - Получить заказ по id. Конкретный заказ клиента или админа.
-GET /api/orders/:orderId/items/availability - Получить доступное кол-во заказанных товаров на складе.
-GET /api/orders/:orderId/financials/invoice/pdf - Получить счёт по заказу.
-GET /api/orders/:orderId/financials/remaining - Получить остаток стоимости для оплаты онлайн.
-POST /api/orders/webhook - Обработка ответа платёжки при оплате картой онлайн.
-POST /api/orders/:orderId/repeat - Повторить заказ клиентом.
-POST /api/orders/:orderId/financials/payments/online - Внести оплату клиентом онлайн-картой.
-POST /api/orders/:orderId/financials/refunds/online/full - Сделать возврат админом всех платежей онлайн-картами.
-PATCH /api/orders/:orderId - Изменить данные заказа админом (кроме товаров, статуса, оплаты, заметки).
-PATCH /api/orders/:orderId/items - Изменить количество товаров в заказе админом.
-PATCH /api/orders/:orderId/internal-note - Изменить внутреннюю заметку в заказе админом.
-PATCH /api/orders/:orderId/financials/events/:eventId/void - Аннулирование записи в истории финансов админом.
-PATCH /api/orders/:orderId/status - Изменить статус заказа админом.
-PATCH /api/orders/:orderId/financials/payments/offline - Внести результат оплаты админом оффлайн-методом.
-PATCH /api/orders/:orderId/financials/refunds/offline - Внести результат возврата админом оффлайн-методом.
-DELETE /api/orders/:orderId - Удалить отменённый заказ админом. По запросу клиента или правилам.
-*/
+const ORDER_TIMEOUT = 32000;
 
 /// Загрузка списка заказов для одной страницы ///
 export const sendOrderListRequest = (urlParams) => async (dispatch) => {
@@ -28,7 +10,7 @@ export const sendOrderListRequest = (urlParams) => async (dispatch) => {
     const errorPrefix = 'Не удалось загрузить заказы';
     const config = {
         authRequired: true,
-        timeout: 15000,
+        timeout: ORDER_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };
@@ -44,7 +26,7 @@ export const sendOrderRequest = (orderId, urlParams) => async (dispatch) => {
     const errorPrefix = 'Не удалось загрузить заказ';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: ORDER_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };
@@ -60,7 +42,7 @@ export const sendOrderItemsAvailabilityRequest = (orderId) => async (dispatch) =
     const errorPrefix = 'Не удалось получить доступное на складе количество товаров из заказа';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: ORDER_TIMEOUT,
         minDelay: 0,
         errorPrefix
     };
@@ -76,7 +58,7 @@ export const sendOrderRepeatRequest = (orderId) => async (dispatch) => {
     const errorPrefix = 'Ошибка при повторе заказа';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: ORDER_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };
@@ -96,7 +78,7 @@ export const sendOrderInternalNoteUpdateRequest = (orderId, formFields) => async
     const errorPrefix = 'Не удалось изменить внутреннюю заметку заказа';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: ORDER_TIMEOUT,
         minDelay: 0,
         errorPrefix
     };
@@ -116,7 +98,7 @@ export const sendOrderDetailsUpdateRequest = (orderId, formFields) => async (dis
     const errorPrefix = 'Не удалось изменить заказ';
     const config = {
         authRequired: true,
-        timeout: 12000,
+        timeout: ORDER_TIMEOUT,
         minDelay: 0,
         errorPrefix
     };
@@ -136,7 +118,7 @@ export const sendOrderItemsUpdateRequest = (orderId, formFields) => async (dispa
     const errorPrefix = 'Не удалось изменить товары в заказе';
     const config = {
         authRequired: true,
-        timeout: 12000,
+        timeout: ORDER_TIMEOUT,
         minDelay: 0,
         errorPrefix
     };
@@ -146,17 +128,17 @@ export const sendOrderItemsUpdateRequest = (orderId, formFields) => async (dispa
 };
 
 /// Изменение статуса заказа (SSE у клиента) ///
-export const sendOrderStatusUpdateRequest = (orderId, requestData) => async (dispatch) => {
+export const sendOrderStatusUpdateRequest = (orderId, payload) => async (dispatch) => {
     const url = `/api/orders/${orderId}/status`;
     const options = {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData)
+        body: JSON.stringify(payload)
     };
     const errorPrefix = 'Не удалось изменить статус заказа';
     const config = {
         authRequired: true,
-        timeout: 15000,
+        timeout: ORDER_TIMEOUT,
         minDelay: 0,
         errorPrefix
     };
@@ -172,7 +154,7 @@ export const sendOrderInvoicePdfRequest = (orderId) => async (dispatch) => {
     const errorPrefix = 'Не удалось загрузить счёт';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: ORDER_TIMEOUT,
         minDelay: 0,
         errorPrefix
     };
@@ -188,7 +170,7 @@ export const sendOrderRemainingAmountRequest = (orderId) => async (dispatch) => 
     const errorPrefix = 'Не удалось вычислить остаток оплаты заказа';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: ORDER_TIMEOUT,
         minDelay: 250,
         errorPrefix
     };
@@ -209,7 +191,7 @@ export const sendOrderFinancialsEventVoidRequest = (params, payload) => async (d
     const errorPrefix = 'Не удалось аннулировать запись в истории финансов заказа';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: ORDER_TIMEOUT,
         minDelay: 0,
         errorPrefix
     };
@@ -219,17 +201,17 @@ export const sendOrderFinancialsEventVoidRequest = (params, payload) => async (d
 };
 
 /// Внесение оплаты за заказ оффлайн-методом (SSE у клиента) ///
-export const sendOrderOfflinePaymentApplyRequest = (orderId, requestData) => async (dispatch) => {
+export const sendOrderOfflinePaymentApplyRequest = (orderId, payload) => async (dispatch) => {
     const url = `/api/orders/${orderId}/financials/payments/offline`;
     const options = {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData)
+        body: JSON.stringify(payload)
     };
     const errorPrefix = 'Не удалось внести оплату заказа оффлайн-методом';
     const config = {
         authRequired: true,
-        timeout: 12000,
+        timeout: ORDER_TIMEOUT,
         minDelay: 0,
         errorPrefix
     };
@@ -239,17 +221,17 @@ export const sendOrderOfflinePaymentApplyRequest = (orderId, requestData) => asy
 };
 
 /// Возврат средств за заказ оффлайн-методом (SSE у клиента) ///
-export const sendOrderOfflineRefundApplyRequest = (orderId, requestData) => async (dispatch) => {
+export const sendOrderOfflineRefundApplyRequest = (orderId, payload) => async (dispatch) => {
     const url = `/api/orders/${orderId}/financials/refunds/offline`;
     const options = {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData)
+        body: JSON.stringify(payload)
     };
     const errorPrefix = 'Не удалось вернуть средства оффлайн-методом';
     const config = {
         authRequired: true,
-        timeout: 12000,
+        timeout: ORDER_TIMEOUT,
         minDelay: 0,
         errorPrefix
     };
@@ -259,17 +241,17 @@ export const sendOrderOfflineRefundApplyRequest = (orderId, requestData) => asyn
 };
 
 /// Создание онлайн платежа для банковской карты ///
-export const sendOrderOnlinePaymentCreateRequest = (orderId, requestData) => async (dispatch) => {
+export const sendOrderOnlinePaymentCreateRequest = (orderId, payload) => async (dispatch) => {
     const url = `/api/orders/${orderId}/financials/payments/online`;
     const options = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData)
+        body: JSON.stringify(payload)
     };
     const errorPrefix = 'Не удалось создать онлайн-платёж для карты';
     const config = {
         authRequired: true,
-        timeout: 15000,
+        timeout: ORDER_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };
@@ -285,7 +267,7 @@ export const sendOrderOnlineRefundsCreateRequest = (orderId) => async (dispatch)
     const errorPrefix = 'Не удалось создать онлайн-возвраты на карты';
     const config = {
         authRequired: true,
-        timeout: 15000,
+        timeout: ORDER_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };

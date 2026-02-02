@@ -3,7 +3,7 @@ import { useDispatch } from 'react-redux';
 import { markAsTouchDevice, setScreenSize } from '@/redux/slices/uiSlice.js';
 import { CLIENT_CONSTANTS } from '@shared/constants.js';
 
-const { SCREEN_MAX_SIZES } = CLIENT_CONSTANTS;
+const { SCREEN_SIZE } = CLIENT_CONSTANTS;
 
 export default function useDeviceInfo() {
     const dispatch = useDispatch();
@@ -14,11 +14,7 @@ export default function useDeviceInfo() {
             dispatch(markAsTouchDevice(isTouchDevice));
     
             const width = window.innerWidth;
-            const screenSize = width <= SCREEN_MAX_SIZES.SMALL
-                ? 'small'
-                : width <= SCREEN_MAX_SIZES.MEDIUM
-                    ? 'medium'
-                    : 'large';
+            const screenSize = Object.values(SCREEN_SIZE).find(maxSize => width <= maxSize);
             dispatch(setScreenSize(screenSize));
         };
 

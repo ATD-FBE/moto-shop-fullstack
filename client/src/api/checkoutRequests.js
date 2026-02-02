@@ -1,6 +1,8 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
+const CHECKOUT_TIMEOUT = 32000;
+
 /// Загрузка черновика заказа ///
 export const sendOrderDraftRequest = (orderId) => async (dispatch) => {
     const url = `/api/checkout/draft-orders/${orderId}/prepare`;
@@ -8,7 +10,7 @@ export const sendOrderDraftRequest = (orderId) => async (dispatch) => {
     const errorPrefix = 'Не удалось загрузить черновик заказа';
     const config = {
         authRequired: true,
-        timeout: 15000,
+        timeout: CHECKOUT_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };
@@ -28,7 +30,7 @@ export const sendOrderDraftCreateRequest = (cartProductSnapshots) => async (disp
     const errorPrefix = 'Не удалось создать черновик заказа';
     const config = {
         authRequired: true,
-        timeout: 15000,
+        timeout: CHECKOUT_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };
@@ -48,7 +50,7 @@ export const sendOrderDraftUpdateRequest = (orderId, formFields) => async (dispa
     const errorPrefix = 'Не удалось изменить черновик заказа';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: CHECKOUT_TIMEOUT,
         minDelay: 250,
         errorPrefix
     };
@@ -68,7 +70,7 @@ export const sendOrderDraftConfirmRequest = (orderId, formFields) => async (disp
     const errorPrefix = 'Не удалось подтвердить заказ';
     const config = {
         authRequired: true,
-        timeout: 15000,
+        timeout: CHECKOUT_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };
@@ -84,7 +86,7 @@ export const sendOrderDraftDeleteRequest = (orderId) => async (dispatch) => {
     const errorPrefix = 'Не удалось отменить заказ';
     const config = {
         authRequired: true,
-        timeout: 15000,
+        timeout: CHECKOUT_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };

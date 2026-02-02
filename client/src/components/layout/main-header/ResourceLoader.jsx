@@ -4,12 +4,12 @@ import { MoonLoader } from 'react-spinners';
 import cn from 'classnames';
 import TrackedImage from '@/components/common/TrackedImage.jsx';
 
-export default function LogoLoader() {
+export default function ResourceLoader() {
     const { activeApiRequests, activeMediaRequests } = useSelector(state => state.loading);
     const isLoading = activeApiRequests > 0 || activeMediaRequests > 0;
 
     return (
-        <div className="logo-loader">
+        <div className="resource-loader">
             <TrackedImage
                 className={cn('logo-image', { visible: !isLoading })}
                 src="/images/logo.png"
@@ -17,7 +17,7 @@ export default function LogoLoader() {
             />
 
             <MoonLoader
-                className={cn('global-loader', { visible: isLoading })}
+                className={cn('resource-loader-spinner', { visible: isLoading })}
                 color="rgb(25, 100, 195)"
                 size={36}
                 speedMultiplier={1}

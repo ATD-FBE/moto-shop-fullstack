@@ -54,7 +54,7 @@ const { submitStates, lockedStatuses } = getSubmitStates();
 const fieldConfigs = [
     {
         name: 'internalNote',
-        label: 'Заметка к заказу (опционально)',
+        label: 'Заметка к заказу',
         elem: 'textarea',
         placeholder: 'Укажите содержание заметки',
         trim: true,
@@ -270,7 +270,7 @@ export default function InternalNoteForm({ orderId, internalNote }) {
     return (
         <form className="internal-note-form" onSubmit={handleFormSubmit} noValidate>
             <div className="form-body">
-                {fieldConfigs.map(({ name, label, elem, type, placeholder, trim }) => {
+                {fieldConfigs.map(({ name, label, elem, type, placeholder, trim, optional }) => {
                     const fieldId = `order-${orderId}-payment-${toKebabCase(name)}`;
                     const fieldInfoClass = getFieldInfoClass(elem, type, name);
 
@@ -288,7 +288,10 @@ export default function InternalNoteForm({ orderId, internalNote }) {
 
                     return (
                         <div key={fieldId} className={cn('form-entry', fieldInfoClass)}>
-                            <label htmlFor={fieldId} className="form-entry-label">{label}:</label>
+                            <label htmlFor={fieldId} className="form-entry-label">
+                                {label}:
+                                {optional && <small className="optional">опционально</small>}
+                            </label>
 
                             <div className={cn('form-entry-field', fieldsState[name]?.uiStatus)}>
                                 {React.createElement(elem, elemProps)}

@@ -1,5 +1,5 @@
 import React from 'react';
-import LogoLoader from './LogoLoader.jsx';
+import ResourceLoader from './ResourceLoader.jsx';
 import MainTitle from './MainTitle.jsx';
 import AuthNav from './AuthNav.jsx';
 import BurgerMenu from './BurgerMenu.jsx';
@@ -20,7 +20,7 @@ export default function HeaderContentMediumScreen({
                 setFeaturedClass={setFeaturedClass}
             />
 
-            <LogoLoader />
+            <ResourceLoader />
 
             <MainTitle />
 

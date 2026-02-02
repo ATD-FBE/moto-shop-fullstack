@@ -740,7 +740,8 @@ export const CLIENT_CONSTANTS = !isServer
             getComputedStyle(document.documentElement).getPropertyValue('--load-status-min-height'),
             10
         ),
-        SCREEN_MAX_SIZES: {
+        SCREEN_SIZE: {
+            XS: 540 ,
             SMALL: 780,
             MEDIUM: 1180,
             LARGE: Infinity

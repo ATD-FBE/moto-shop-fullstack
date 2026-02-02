@@ -5,6 +5,7 @@ import { useSelector, useDispatch, Provider } from 'react-redux';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { loadSession } from '@/services/authService.js';
 import { routeConfig } from '@/config/appRouting.js';
+import GlobalLoader from '@/components/GlobalLoader.jsx';
 import Layout from '@/components/Layout.jsx';
 import RouteGuard from '@/components/RouteGuard.jsx';
 import AppStore from '@/redux/Store.jsx';
@@ -22,34 +23,39 @@ const App = () => {
         dispatch(loadSession());
     }, [dispatch]);
 
-    if (!sessionReady) return <div className="global-loader">Глобальный лоадер</div>;
-
     return (
-        <BrowserRouter>
-            <Routes>
-                <Route path='/' element={
-                    <StructureRefsProvider>
-                        <Layout />
-                    </StructureRefsProvider>
-                }>
-                    {Object.values(routeConfig).map(({ paths, access, component }, idx) =>
-                        paths.map(path => (
-                            <Route
-                                key={`${idx}-${path}`}
-                                path={path}
-                                element={
-                                    // Outlet для Layout
-                                    <RouteGuard path={path} access={access} />
-                                }
-                            >
-                                // Outlet для ProtectedPageContent (вложенный маршрут)
-                                <Route index element={React.createElement(component)} />
-                            </Route>
-                        ))
-                    )}
-                </Route>
-            </Routes>
-        </BrowserRouter>
+        <>
+            <GlobalLoader visibility={!sessionReady} />
+
+            {sessionReady && (
+                <BrowserRouter>
+                    <Routes>
+                        <Route path='/' element={
+                            <StructureRefsProvider>
+                                <Layout />
+                            </StructureRefsProvider>
+                        }>
+                            {Object.values(routeConfig).map(({ paths, access, component }, idx) =>
+                                paths.map(path => (
+                                    <Route
+                                        key={`${idx}-${path}`}
+                                        path={path}
+                                        element={
+                                            // Outlet для Layout
+                                            <RouteGuard access={access} />
+                                        }
+                                    >
+                                        // Outlet для ProtectedPageContent (вложенный маршрут)
+                                        <Route index element={React.createElement(component)} />
+                                    </Route>
+                                ))
+                            )}
+                        </Route>
+                    </Routes>
+                </BrowserRouter>
+            )}
+        </>
+        
     );
 };
 

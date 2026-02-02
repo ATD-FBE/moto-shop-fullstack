@@ -1,6 +1,8 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
+const PROMO_TIMEOUT = 22000;
+
 /// Загрузка всех акций ///
 export const sendPromoListRequest = (isAuthenticated, urlParams) => async (dispatch) => {
     const queryString = urlParams ? `?${urlParams}` : ''
@@ -9,7 +11,7 @@ export const sendPromoListRequest = (isAuthenticated, urlParams) => async (dispa
     const errorPrefix = 'Не удалось загрузить акции';
     const config = {
         authRequired: isAuthenticated,
-        timeout: 15000,
+        timeout: PROMO_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };
@@ -25,7 +27,7 @@ export const sendPromoRequest = (promoId) => async (dispatch) => {
     const errorPrefix = 'Не удалось загрузить акцию';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: PROMO_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };
@@ -44,7 +46,7 @@ export const sendPromoCreateRequest = (formData) => async (dispatch) => {
     const errorPrefix = 'Не удалось создать акцию';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: PROMO_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };
@@ -63,7 +65,7 @@ export const sendPromoUpdateRequest = (promoId, formData) => async (dispatch) =>
     const errorPrefix = 'Не удалось изменить акцию';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: PROMO_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };
@@ -79,7 +81,7 @@ export const sendPromoDeleteRequest = (promoId) => async (dispatch) => {
     const errorPrefix = 'Не удалось удалить акцию';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: PROMO_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };

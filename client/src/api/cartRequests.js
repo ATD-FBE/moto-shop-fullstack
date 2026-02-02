@@ -1,6 +1,8 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
+const CART_TIMEOUT = 12000;
+
 /// Синхронизация гостевой корзины ///
 export const sendGuestCartItemListRequest = (guestCart) => async (dispatch) => {
     const url = '/api/cart/guest';
@@ -12,7 +14,7 @@ export const sendGuestCartItemListRequest = (guestCart) => async (dispatch) => {
     const errorPrefix = 'Не удалось синхронизировать гостевую корзину';
     const config = {
         authRequired: false,
-        timeout: 10000,
+        timeout: CART_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };
@@ -28,7 +30,7 @@ export const sendCartItemListRequest = () => async (dispatch) => {
     const errorPrefix = 'Не удалось загрузить корзину аккаунта';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: CART_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };
@@ -48,7 +50,7 @@ export const sendCartItemUpdateRequest = (productId, cartItemData) => async (dis
     const errorPrefix = 'Не удалось изменить количество товара в корзине';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: CART_TIMEOUT,
         minDelay: 250,
         errorPrefix
     };
@@ -68,7 +70,7 @@ export const sendCartItemRestoreRequest = (productId, cartItemData) => async (di
     const errorPrefix = 'Не удалось восстановить товар в корзине';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: CART_TIMEOUT,
         minDelay: 250,
         errorPrefix
     };
@@ -84,7 +86,7 @@ export const sendCartWarningsFixRequest = () => async (dispatch) => {
     const errorPrefix = 'Не удалось исправить проблемные товары в корзине';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: CART_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };
@@ -100,7 +102,7 @@ export const sendCartItemRemoveRequest = (productId) => async (dispatch) => {
     const errorPrefix = 'Не удалось удалить товар из корзины';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: CART_TIMEOUT,
         minDelay: 250,
         errorPrefix
     };
@@ -116,7 +118,7 @@ export const sendCartClearRequest = () => async (dispatch) => {
     const errorPrefix = 'Не удалось очистить корзину';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: CART_TIMEOUT,
         minDelay: 250,
         errorPrefix
     };
@@ -124,23 +126,3 @@ export const sendCartClearRequest = () => async (dispatch) => {
     const response = await dispatch(apiFetch(url, options, config));
     return await apiResponse(response, { errorPrefix });
 };
-
-/// Объединение товаров в гостевой и серверной корзинах ///
-/*export const sendCartMergeRequest = (guestCart) => async (dispatch) => {
-    const url = '/api/cart/merge';
-    const options = {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guestCart })
-    };
-    const errorPrefix = 'Не удалось объединить серверную и гостевую корзины';
-    const config = {
-        authRequired: true,
-        timeout: 10000,
-        minDelay: 375,
-        errorPrefix
-    };
-
-    const response = await dispatch(apiFetch(url, options, config));
-    return await apiResponse(response, { errorPrefix });
-};*/

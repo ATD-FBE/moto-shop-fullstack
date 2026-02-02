@@ -1,6 +1,8 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
+const AUTH_TIMEOUT = 17000;
+
 /// Регистрация ///
 export const sendAuthRegistrationRequest = (formFields, guestCart) => async (dispatch) => {
     const url = '/api/auth/register';
@@ -12,7 +14,7 @@ export const sendAuthRegistrationRequest = (formFields, guestCart) => async (dis
     const errorPrefix = 'Ошибка регистрации';
     const config = {
         authRequired: false,
-        timeout: 10000,
+        timeout: AUTH_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };
@@ -32,7 +34,7 @@ export const sendAuthLoginRequest = (formFields, guestCart) => async (dispatch) 
     const errorPrefix = 'Ошибка авторизации';
     const config = {
         authRequired: false,
-        timeout: 10000,
+        timeout: AUTH_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };
@@ -53,7 +55,7 @@ export const sendAuthSessionRequest = (guestCart) => async (dispatch) => {
     const config = {
         authRequired: true,
         skipRefreshTokenCheck: true,
-        timeout: 10000,
+        timeout: AUTH_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };
@@ -73,7 +75,7 @@ export const sendAuthUserUpdateRequest = (formFields) => async (dispatch) => {
     const errorPrefix = 'Не удалось изменить данные пользователя';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: AUTH_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };
@@ -89,7 +91,7 @@ export const sendAuthRefreshRequest = () => async (dispatch) => {
     const errorPrefix = 'Не удалось обновить токен доступа';
     const config = {
         authRequired: false,
-        timeout: 10000,
+        timeout: AUTH_TIMEOUT,
         minDelay: 0,
         errorPrefix
     };
@@ -105,7 +107,7 @@ export const sendAuthCheckoutPrefsRequest = () => async (dispatch) => {
     const errorPrefix = 'Не удалось загрузить настройки заказа';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: AUTH_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };
@@ -141,7 +143,7 @@ export const sendAuthLogoutRequest = () => async (dispatch) => {
     const errorPrefix = 'Ошибка выхода из сессии';
     const config = {
         authRequired: false,
-        timeout: 10000,
+        timeout: AUTH_TIMEOUT,
         minDelay: 0,
         errorPrefix
     };

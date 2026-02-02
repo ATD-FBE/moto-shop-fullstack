@@ -127,7 +127,7 @@ const fieldConfigs = [
     },
     {
         name: 'failureReason',
-        label: 'Причина отказа (опционально)',
+        label: 'Причина отказа',
         elem: 'input',
         type: 'text',
         placeholder: 'Укажите причину отмены перевода',
@@ -138,7 +138,7 @@ const fieldConfigs = [
     },
     {
         name: 'externalReference',
-        label: 'Данные источника (опционально)',
+        label: 'Данные источника',
         elem: 'input',
         type: 'text',
         placeholder: 'Номер терминала / чека / RRN',
@@ -330,8 +330,7 @@ export default function RefundForm({
         if (method === REFUND_METHOD.CARD_ONLINE) {
             requestThunk = sendOrderOnlineRefundsCreateRequest(orderId);
         } else {
-            const requestData = { transaction: formFields };
-            requestThunk = sendOrderOfflineRefundApplyRequest(orderId, requestData);
+            requestThunk = sendOrderOfflineRefundApplyRequest(orderId, { transaction: formFields });
         }
 
         const responseData = await dispatch(requestThunk);
@@ -453,6 +452,7 @@ export default function RefundForm({
                     autoComplete,
                     checkboxLabel,
                     trim,
+                    optional,
                     getNote,
                     shouldNote,
                     canApply
@@ -510,7 +510,10 @@ export default function RefundForm({
 
                     const formEntryElem = (
                         <div key={fieldId} className={cn('form-entry', fieldInfoClass)}>
-                            <label htmlFor={fieldId} className="form-entry-label">{label}:</label>
+                            <label htmlFor={fieldId} className="form-entry-label">
+                                {label}:
+                                {optional && <small className="optional">опционально</small>}
+                            </label>
 
                             <div className={cn('form-entry-field', fieldsState[name]?.uiStatus)}>
                                 {fieldElem}

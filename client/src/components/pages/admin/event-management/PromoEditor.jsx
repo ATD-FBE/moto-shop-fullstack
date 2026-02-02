@@ -69,7 +69,7 @@ const fieldConfigs = [
     },
     {
         name: 'image',
-        label: 'Изображение (опционально)',
+        label: 'Изображение',
         elem: 'input',
         type: 'file',
         accept: ALLOWED_IMAGE_MIME_TYPES.join(', '),
@@ -448,7 +448,8 @@ export default function PromoEditor({ promoId }) {
                         placeholder,
                         accept,
                         autoComplete,
-                        trim
+                        trim,
+                        optional
                     }) => {
                         const fieldInfoClass = getFieldInfoClass(elem, type, name);
                         const fieldId = `promo-${toKebabCase(name)}`;
@@ -470,7 +471,10 @@ export default function PromoEditor({ promoId }) {
 
                         return (
                             <div key={fieldId} className={cn('form-entry', fieldInfoClass)}>
-                                <label htmlFor={fieldId} className="form-entry-label">{label}:</label>
+                                <label htmlFor={fieldId} className="form-entry-label">
+                                    {label}:
+                                    {optional && <small className="optional">опционально</small>}
+                                </label>
 
                                 <div className={cn('form-entry-field', fieldsState[name]?.uiStatus)}>
                                     {hasPrevImage && (

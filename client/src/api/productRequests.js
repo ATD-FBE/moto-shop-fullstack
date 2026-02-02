@@ -1,6 +1,8 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
+const PRODUCT_TIMEOUT = 32000;
+
 /// Загрузка списка товаров для одной страницы ///
 export const sendProductListRequest = (isAuthenticated, context, urlParams) => async (dispatch) => {
     const url = `/api/catalog/products?context=${context}&${urlParams}`;
@@ -8,7 +10,7 @@ export const sendProductListRequest = (isAuthenticated, context, urlParams) => a
     const errorPrefix = 'Не удалось загрузить товары';
     const config = {
         authRequired: isAuthenticated,
-        timeout: 15000,
+        timeout: PRODUCT_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };
@@ -24,7 +26,7 @@ export const sendProductRequest = (isAuthenticated, productId) => async (dispatc
     const errorPrefix = 'Не удалось загрузить товар';
     const config = {
         authRequired: isAuthenticated,
-        timeout: 10000,
+        timeout: PRODUCT_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };
@@ -43,7 +45,7 @@ export const sendProductCreateRequest = (formData) => async (dispatch) => {
     const errorPrefix = 'Не удалось создать товар';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: PRODUCT_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };
@@ -62,7 +64,7 @@ export const sendProductUpdateRequest = (productId, formData) => async (dispatch
     const errorPrefix = 'Не удалось изменить товар';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: PRODUCT_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };
@@ -82,7 +84,7 @@ export const sendBulkProductUpdateRequest = (productIds, formFields) => async (d
     const errorPrefix = 'Не удалось изменить группу товаров';
     const config = {
         authRequired: true,
-        timeout: 15000,
+        timeout: PRODUCT_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };
@@ -98,7 +100,7 @@ export const sendProductDeleteRequest = (productId) => async (dispatch) => {
     const errorPrefix = 'Не удалось удалить товар';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: PRODUCT_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };
@@ -118,7 +120,7 @@ export const sendBulkProductDeleteRequest = (productIds) => async (dispatch) => 
     const errorPrefix = 'Не удалось удалить группу товаров';
     const config = {
         authRequired: true,
-        timeout: 15000,
+        timeout: PRODUCT_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };

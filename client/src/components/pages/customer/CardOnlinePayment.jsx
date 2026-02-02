@@ -478,10 +478,10 @@ export default function CardOnlinePayment() {
         }
 
         // Отправка данных на сервер
-        const requestData = { paymentToken, transaction: formFields };
-        const responseData = await dispatch(
-            sendOrderOnlinePaymentCreateRequest(orderId, requestData)
-        );
+        const responseData = await dispatch(sendOrderOnlinePaymentCreateRequest(orderId, {
+            paymentToken,
+            transaction: formFields
+        }));
         if (isUnmountedRef.current) return;
 
         const { status, message, fieldErrors, confirmationUrl } = responseData;

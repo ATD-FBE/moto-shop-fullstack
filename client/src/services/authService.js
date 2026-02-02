@@ -182,6 +182,8 @@ export const handleLogout = ({ forceRedirectToLogin = false } = {}) => async (di
     
     // Удаление данных пользователя
     removeUserFromLocalStorage();
+
+    // Разлогинивание
     dispatch(logout(forceRedirectToLogin));
 
     // Очистка критических данных товаров в Redux при выходе привиллегированного пользователя

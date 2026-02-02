@@ -113,7 +113,7 @@ const fieldConfigs = [
     },
     {
         name: 'failureReason',
-        label: 'Причина отказа (опционально)',
+        label: 'Причина отказа',
         elem: 'input',
         type: 'text',
         placeholder: 'Укажите причину отмены перевода',
@@ -299,8 +299,9 @@ export default function PaymentForm({
         setSubmitStatus(FORM_STATUS.SENDING);
         dispatch(setIsNavigationBlocked(true));
 
-        const requestData = { transaction: formFields };
-        const responseData = await dispatch(sendOrderOfflinePaymentApplyRequest(orderId, requestData));
+        const responseData = await dispatch(sendOrderOfflinePaymentApplyRequest(orderId, {
+            transaction: formFields
+        }));
         if (isUnmountedRef.current) return;
 
         const { status, message, fieldErrors } = responseData;
@@ -415,6 +416,7 @@ export default function PaymentForm({
                     options,
                     checkboxLabel,
                     trim,
+                    optional,
                     note,
                     shouldNote,
                     shouldDisable,
@@ -472,7 +474,10 @@ export default function PaymentForm({
 
                     const formEntryElem = (
                         <div key={fieldId} className={cn('form-entry', fieldInfoClass)}>
-                            <label htmlFor={fieldId} className="form-entry-label">{label}:</label>
+                            <label htmlFor={fieldId} className="form-entry-label">
+                                {label}:
+                                {optional && <small className="optional">опционально</small>}
+                            </label>
 
                             <div className={cn('form-entry-field', fieldsState[name]?.uiStatus)}>
                                 {fieldElem}

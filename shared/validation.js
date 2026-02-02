@@ -538,7 +538,7 @@ export const fieldErrorMessages = {
             default: 'Некорректный CVC'
         },
         expiryDate: {
-            default: 'Срок действия карты указан неверно'
+            default: 'Неверный срок действия'
         }
     },
     

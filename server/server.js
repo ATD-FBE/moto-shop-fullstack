@@ -68,15 +68,15 @@ app.use(express.json());
 
 apiRouter.use('/company', reqTimeout(15000), companyRouter);
 apiRouter.use('/auth', reqTimeout(15000), disableCache, authRouter);
-apiRouter.use('/news', reqTimeout(20000), newsRouter);
+apiRouter.use('/news', reqTimeout(15000), newsRouter);
 apiRouter.use('/promos', reqTimeout(20000), promoRouter);
-apiRouter.use('/customers', reqTimeout(20000), customerRouter);
-apiRouter.use('/notifications', reqTimeout(20000), notificationRouter);
+apiRouter.use('/customers', reqTimeout(25000), customerRouter);
+apiRouter.use('/notifications', reqTimeout(25000), notificationRouter);
 apiRouter.use('/catalog/categories', reqTimeout(15000), categoryRouter);
-apiRouter.use('/catalog/products', reqTimeout(20000), productRouter);
-apiRouter.use('/cart', reqTimeout(15000), cartRouter);
-apiRouter.use('/checkout/draft-orders', reqTimeout(20000), checkoutRouter);
-apiRouter.use('/orders', reqTimeout(20000), orderRouter);
+apiRouter.use('/catalog/products', reqTimeout(30000), productRouter);
+apiRouter.use('/cart', reqTimeout(10000), cartRouter);
+apiRouter.use('/checkout/draft-orders', reqTimeout(30000), checkoutRouter);
+apiRouter.use('/orders', reqTimeout(30000), orderRouter);
 app.use('/api', apiRouter);
 
 app.use('/sse', cors(sseCorsOptions), sseRouter);

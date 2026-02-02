@@ -1,8 +1,14 @@
 import React from 'react';
+import { useSelector } from 'react-redux';
 import BlockableLink from '@/components/common/BlockableLink.jsx';
 import { breadcrumbMap } from '@/config/appRouting.js';
+import { CLIENT_CONSTANTS } from '@shared/constants.js';
+
+const { SCREEN_SIZE } = CLIENT_CONSTANTS;
 
 export default function Breadcrumbs({ path }) {
+    const { screenSize } = useSelector(state => state.ui);
+
     const normalizedPath = path !== '/' && path.endsWith('/') ? path.slice(0, -1) : path;
 
     // Поиск шаблона в карте хлебных крошек, подходящий под текущий path
@@ -74,25 +80,33 @@ export default function Breadcrumbs({ path }) {
 
     return (
         <nav className="breadcrumbs-nav">
-            <ul>
-                {trail.map((crumb, idx) => {
-                    const isLast = idx === trail.length - 1;
-
-                    return (
-                        <li key={`${crumb.path}-${idx}`}>
-                            {idx > 0 && <span className="breadcrumb-separator">›</span>}
-
-                            {isLast ? (
-                                <span className="last-crumb">{crumb.label}</span>
-                            ) : (
-                                <BlockableLink to={crumb.path} className="link-crumb">
-                                    {crumb.label}
-                                </BlockableLink>
-                            )}
-                        </li>
-                    );
-                })}
-            </ul>
+            {screenSize === SCREEN_SIZE.XS ? (
+                <BlockableLink to={trail.at(-2).path} className="prev-link-crumb">
+                    <span className="icon">❮</span>
+                    <span className="label">{trail.at(-2).label}</span>
+                </BlockableLink>
+            ) : (
+                <ul>
+                    {trail.map((crumb, idx) => {
+                        const isFirst = idx === 0;
+                        const isLast = idx === trail.length - 1;
+    
+                        return (
+                            <li key={`${crumb.path}-${idx}`}>
+                                {!isFirst && <span className="breadcrumb-separator">›</span>}
+    
+                                {isLast ? (
+                                    <span className="last-crumb">{crumb.label}</span>
+                                ) : (
+                                    <BlockableLink to={crumb.path} className="link-crumb">
+                                        {crumb.label}
+                                    </BlockableLink>
+                                )}
+                            </li>
+                        );
+                    })}
+                </ul>
+            )}
         </nav>
     );
 };

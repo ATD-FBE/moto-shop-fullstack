@@ -1,5 +1,5 @@
 import React from 'react';
-import LogoLoader from './LogoLoader.jsx';
+import ResourceLoader from './ResourceLoader.jsx';
 import AuthNav from './AuthNav.jsx';
 import BurgerMenu from './BurgerMenu.jsx';
 
@@ -19,7 +19,7 @@ export default function HeaderContentSmallScreen({
                 setFeaturedClass={setFeaturedClass}
             />
 
-            <LogoLoader />
+            <ResourceLoader />
 
             <AuthNav
                 userRole={userRole}

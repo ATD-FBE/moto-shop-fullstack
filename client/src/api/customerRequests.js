@@ -1,6 +1,8 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
+const CUSTOMER_TIMEOUT = 27000;
+
 /// Загрузка списков ID всех отфильтрованных клиентов и их данных для одной страницы таблицы ///
 export const sendCustomerListRequest = (urlParams) => async (dispatch) => {
     const url = `/api/customers?${urlParams}`;
@@ -8,7 +10,7 @@ export const sendCustomerListRequest = (urlParams) => async (dispatch) => {
     const errorPrefix = 'Не удалось загрузить данные клиентов';
     const config = {
         authRequired: true,
-        timeout: 15000,
+        timeout: CUSTOMER_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };
@@ -24,7 +26,7 @@ export const sendCustomerOrderListRequest = (customerId, urlParams) => async (di
     const errorPrefix = 'Не удалось загрузить заказы клиента';
     const config = {
         authRequired: true,
-        timeout: 15000,
+        timeout: CUSTOMER_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };
@@ -44,7 +46,7 @@ export const sendCustomerDiscountUpdateRequest = (customerId, discount) => async
     const errorPrefix = 'Не удалось измененить скидку клиента';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: CUSTOMER_TIMEOUT,
         minDelay: 250,
         errorPrefix
     };
@@ -64,7 +66,7 @@ export const sendCustomerBanToggleRequest = (customerId, newBanStatus) => async 
     const errorPrefix = 'Не удалось измененить статус блокировки клиента';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: CUSTOMER_TIMEOUT,
         minDelay: 250,
         errorPrefix
     };

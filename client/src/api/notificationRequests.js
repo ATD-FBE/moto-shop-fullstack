@@ -1,6 +1,8 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
+const NOTIFICATION_TIMEOUT = 27000;
+
 /// Загрузка списка уведомлений на страницу (для управления админом или просмотра клиентом) ///
 export const sendNotificationListRequest = (urlParams) => async (dispatch) => {
     const url = `/api/notifications?${urlParams}`;
@@ -8,7 +10,7 @@ export const sendNotificationListRequest = (urlParams) => async (dispatch) => {
     const errorPrefix = 'Не удалось загрузить уведомления';
     const config = {
         authRequired: true,
-        timeout: 15000,
+        timeout: NOTIFICATION_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };
@@ -24,7 +26,7 @@ export const sendNotificationRequest = (notificationId) => async (dispatch) => {
     const errorPrefix = 'Не удалось загрузить уведомление';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: NOTIFICATION_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };
@@ -44,7 +46,7 @@ export const sendNotificationCreateRequest = (formFields) => async (dispatch) =>
     const errorPrefix = 'Не удалось создать уведомление';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: NOTIFICATION_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };
@@ -64,7 +66,7 @@ export const sendNotificationUpdateRequest = (notificationId, formFields) => asy
     const errorPrefix = 'Не удалось изменить уведомление';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: NOTIFICATION_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };
@@ -80,7 +82,7 @@ export const sendNotificationSendingRequest = (notificationId) => async (dispatc
     const errorPrefix = 'Не удалось отправить уведомление';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: NOTIFICATION_TIMEOUT,
         minDelay: 750,
         errorPrefix
     };
@@ -96,7 +98,7 @@ export const sendNotificationDeleteRequest = (notificationId) => async (dispatch
     const errorPrefix = 'Не удалось удалить уведомление';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: NOTIFICATION_TIMEOUT,
         minDelay: 500,
         errorPrefix
     };
@@ -112,7 +114,7 @@ export const sendNotificationMarkAsReadRequest = (notificationId) => async (disp
     const errorPrefix = 'Не удалось отметить уведомление как прочитанное';
     const config = {
         authRequired: true,
-        timeout: 10000,
+        timeout: NOTIFICATION_TIMEOUT,
         minDelay: 250,
         errorPrefix
     };

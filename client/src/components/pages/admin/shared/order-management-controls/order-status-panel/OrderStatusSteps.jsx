@@ -264,13 +264,11 @@ export default function OrderStatusSteps({
                 : newStatus === ORDER_STATUS.CANCELLED
                     ? ORDER_ACTION.CANCEL
                     : ORDER_ACTION.NEXT;
-
-        const requestData = {
+    
+        const responseData = await dispatch(sendOrderStatusUpdateRequest(orderId, {
             action,
             ...(!rollback && formFields && Object.keys(formFields).length > 0 && { formFields })
-        };
-    
-        const responseData = await dispatch(sendOrderStatusUpdateRequest(orderId, requestData));
+        }));
         if (isUnmountedRef.current) return;
     
         const { status, message, fieldErrors } = responseData;

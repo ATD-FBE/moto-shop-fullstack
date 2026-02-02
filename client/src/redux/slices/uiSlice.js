@@ -2,7 +2,7 @@ import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
     isTouchDevice: false,
-    screenSize: 'medium', // 'small' | 'medium' | 'large'
+    screenSize: null,
     dashboardPanelActive: false,
     isNavigationBlocked: false,
     lockedRoute: null, // { path: '/', cancelPath: null, isCancelFreeze: true/false }

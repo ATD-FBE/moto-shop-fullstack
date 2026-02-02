@@ -61,7 +61,7 @@ const getFieldConfigs = (isEditMode, product, allowedCategories) => {
     const fieldConfigs = [
         {
             name: 'images',
-            label: 'Фотографии (опционально)',
+            label: 'Фотографии',
             elem: 'input',
             type: 'file',
             files: [],
@@ -74,7 +74,7 @@ const getFieldConfigs = (isEditMode, product, allowedCategories) => {
         },
         {
             name: 'sku',
-            label: 'Артикул (опционально)',
+            label: 'Артикул',
             elem: 'input',
             type: 'text',
             placeholder: isEditMode ? 'Укажите новый артикул' : 'Укажите артикул товара',
@@ -96,7 +96,7 @@ const getFieldConfigs = (isEditMode, product, allowedCategories) => {
         },
         {
             name: 'brand',
-            label: 'Бренд (опционально)',
+            label: 'Бренд',
             elem: 'input',
             type: 'text',
             placeholder: isEditMode ? 'Укажите новый бренд' : 'Укажите бренд товара',
@@ -108,7 +108,7 @@ const getFieldConfigs = (isEditMode, product, allowedCategories) => {
         },
         {
             name: 'description',
-            label: 'Описание (опционально)',
+            label: 'Описание',
             elem: 'textarea',
             placeholder: isEditMode ? 'Введите новое описание' : 'Введите описание товара',
             value: product?.description ?? '',
@@ -161,7 +161,7 @@ const getFieldConfigs = (isEditMode, product, allowedCategories) => {
         },
         {
             name: 'tags',
-            label: 'Теги (через запятую, опционально)',
+            label: 'Теги (через запятую)',
             elem: 'input',
             type: 'text',
             placeholder: isEditMode ? 'Укажите новые теги' : 'Укажите теги',
@@ -718,7 +718,8 @@ export default function ProductForm({ uiBlocked, product, allowedCategories, onS
                     options,
                     checkboxLabel,
                     autoComplete,
-                    trim
+                    trim,
+                    optional
                 }) => {
                     const fieldInfoClass = getFieldInfoClass(elem, type, name);
                     const fieldId = `product-${isEditMode ? product.id : 'create'}-${toKebabCase(name)}`;
@@ -770,7 +771,10 @@ export default function ProductForm({ uiBlocked, product, allowedCategories, onS
 
                     return (
                         <div key={fieldId} className={cn('form-entry', fieldInfoClass)}>
-                            <label htmlFor={fieldId} className="form-entry-label">{label}:</label>
+                            <label htmlFor={fieldId} className="form-entry-label">
+                                {label}:
+                                {optional && <small className="optional">опционально</small>}
+                            </label>
 
                             <div className={cn('form-entry-field', fieldsState[name]?.uiStatus)}>
                                 {fieldElem}

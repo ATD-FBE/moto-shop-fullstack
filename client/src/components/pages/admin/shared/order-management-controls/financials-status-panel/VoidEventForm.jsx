@@ -57,7 +57,7 @@ const fieldConfigs = [
     },
     {
         name: 'voidedNote',
-        label: 'Заметка (опционально)',
+        label: 'Заметка',
         elem: 'textarea',
         placeholder: 'Укажите причину аннулирования',
         trim: true,
@@ -261,7 +261,7 @@ export default function VoidEventForm({ orderId, hasFinancialsEvents }) {
     return (
         <form className="void-event-form" onSubmit={handleFormSubmit} noValidate>
             <div className="form-body">
-                {fieldConfigs.map(({ name, label, elem, type, placeholder, trim }) => {
+                {fieldConfigs.map(({ name, label, elem, type, placeholder, trim, optional }) => {
                     const fieldId = `order-${orderId}-payment-${toKebabCase(name)}`;
                     const fieldInfoClass = getFieldInfoClass(elem, type, name);
 
@@ -279,7 +279,10 @@ export default function VoidEventForm({ orderId, hasFinancialsEvents }) {
 
                     return (
                         <div key={fieldId} className={cn('form-entry', fieldInfoClass)}>
-                            <label htmlFor={fieldId} className="form-entry-label">{label}:</label>
+                            <label htmlFor={fieldId} className="form-entry-label">
+                                {label}:
+                                {optional && <small className="optional">опционально</small>}
+                            </label>
 
                             <div className={cn('form-entry-field', fieldsState[name]?.uiStatus)}>
                                 {React.createElement(elem, elemProps)}

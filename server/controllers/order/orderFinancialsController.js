@@ -17,7 +17,7 @@ import {
     detectWebhookProvider,
     verifyWebhookAuthenticity,
     normalizeWebhook
-} from '../../services/onlineTransactionsService.js';
+} from '../../services/online-transactions/onlineTransactionsService.js';
 import { logCriticalEvent } from '../../services/criticalEventService.js';
 import { typeCheck, validateInputTypes } from '../../utils/typeValidation.js';
 import { runInTransaction } from '../../utils/transaction.js';
@@ -1239,7 +1239,8 @@ export const handleWebhook = async (req, res, next) => {
                 { path: orderDotNotationMap.financialsState, value: updatedDbOrder.financials.state },
                 { path: orderDotNotationMap.totalPaid, value: updatedDbOrder.financials.totalPaid },
                 { path: orderDotNotationMap.totalRefunded, value: updatedDbOrder.financials.totalRefunded },
-                { path: orderDotNotationMap.eventHistory, value: updatedDbOrder.financials.eventHistory }
+                { path: orderDotNotationMap.eventHistory, value: updatedDbOrder.financials.eventHistory },
+                { path: orderDotNotationMap.currentOnlineTransaction, value: updatedDbOrder.financials.currentOnlineTransaction }
             ];
             const updatedOrderData = { orderPatches };
 

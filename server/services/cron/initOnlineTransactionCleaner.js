@@ -10,7 +10,7 @@ import {
 import {
     fetchExternalTransactions,
     normalizeExternalTransaction
-} from '../onlineTransactionsService.js';
+} from '../online-transactions/onlineTransactionsService.js';
 import * as sseOrderManagement from '../sse/sseOrderManagementService.js';
 import { logCriticalEvent } from '../criticalEventService.js';
 import { typeCheck } from '../../utils/typeValidation.js';

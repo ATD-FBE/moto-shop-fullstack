@@ -5,9 +5,9 @@ import {
     normalizeYooKassaWebhook,
     fetchYooKassaExternalTransactions,
     normalizeYooKassaExternalTransaction
-} from './online-providers/yookassaService.js';
-import log from '../utils/logger.js';
-import { CARD_ONLINE_PROVIDER } from '../../shared/constants.js';
+} from './providers/yookassa.provider.js';
+import log from '../../utils/logger.js';
+import { CARD_ONLINE_PROVIDER } from '../../../shared/constants.js';
 
 export const detectWebhookProvider = (req) => {
     const headers = req.headers;

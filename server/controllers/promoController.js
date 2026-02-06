@@ -3,6 +3,7 @@ import { join } from 'path';
 import Promo from '../database/models/Promo.js';
 import { PROMO_STORAGE_PATH } from '../config/paths.js';
 import { preparePromoData } from '../services/promoService.js';
+//import { storageService } from '../services/storage/storageService.js';
 import { typeCheck, validateInputTypes } from '../utils/typeValidation.js';
 import { createAppError, prepareAppErrorData } from '../utils/errorUtils.js';
 import { parseValidationErrors } from '../utils/errorUtils.js';

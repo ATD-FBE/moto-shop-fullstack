@@ -1,10 +1,10 @@
 import { randomUUID } from 'crypto';
 import { YooCheckout } from '@a2seven/yoo-checkout';
 import ipRangeCheck from 'ip-range-check';
-import config from '../../config/config.js';
-import { typeCheck } from '../../utils/typeValidation.js';
-import log from '../../utils/logger.js';
-import { TRANSACTION_TYPE, CARD_ONLINE_PROVIDER } from '../../../shared/constants.js';
+import config from '../../../config/config.js';
+import { typeCheck } from '../../../utils/typeValidation.js';
+import log from '../../../utils/logger.js';
+import { TRANSACTION_TYPE, CARD_ONLINE_PROVIDER } from '../../../../shared/constants.js';
 
 const yooKassaCheckout = new YooCheckout({
     shopId: config.yooKassaShopId,

@@ -4950,8 +4950,8 @@ main {
                 gap: 8px;
                 white-space: nowrap;
     
-                &:not(:first-of-type):not(:last-of-type) {
-                    padding: 42px 0;
+                &:not(:last-of-type) {
+                    padding-bottom: 42px;
                 }
 
                 .form-entry-label {

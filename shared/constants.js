@@ -774,6 +774,18 @@ export const CLIENT_CONSTANTS = !isServer
 /// Серверные константы ///
 export const SERVER_CONSTANTS = isServer
     ? {
+        MONGO_MODE: {
+            LOCAL: 'local',
+            ATLAS: 'atlas'
+        },
+        STORAGE_TYPE: {
+            FS: 'fs',
+            S3: 's3'
+        },
+        MULTER_MODE: {
+            DISK: 'disk',
+            MEMORY: 'memory'
+        },
         TOKEN_COOKIE_OPTIONS: {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',

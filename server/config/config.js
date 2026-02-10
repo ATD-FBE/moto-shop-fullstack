@@ -1,6 +1,9 @@
 import dotenv from 'dotenv';
 import { join } from 'path';
 import { CONFIG_PATH } from './paths.js';
+import { SERVER_CONSTANTS } from '../../shared/constants.js';
+
+const { MONGO_MODE, STORAGE_TYPE, MULTER_MODE } = SERVER_CONSTANTS;
 
 const environment = process.env.NODE_ENV || 'development';
 dotenv.config({ path: join(CONFIG_PATH, `.env.${environment}`) });
@@ -8,11 +11,11 @@ dotenv.config({ path: join(CONFIG_PATH, `.env.${environment}`) });
 const resolveMongoUri = () => {
     const mode = process.env.MONGO_MODE;
 
-    if (mode === 'local') {
+    if (mode === MONGO_MODE.LOCAL) {
         return process.env.MONGO_URI_LOCAL;
     }
 
-    if (mode === 'atlas') {
+    if (mode === MONGO_MODE.ATLAS) {
         return process.env.MONGO_URI_ATLAS;
     }
 
@@ -22,11 +25,14 @@ const resolveMongoUri = () => {
 const resolveStorageConfig = () => {
     const type = process.env.STORAGE_TYPE;
 
-    if (type === 'fs') {
-        return { type: 'fs' };
+    if (type === STORAGE_TYPE.FS) {
+        return {
+            type: STORAGE_TYPE.FS,
+            multerMode: MULTER_MODE.DISK
+        };
     }
 
-    if (type === 's3') {
+    if (type === STORAGE_TYPE.S3) {
         const {
             STORAGE_S3_BUCKET,
             STORAGE_S3_REGION,
@@ -40,7 +46,8 @@ const resolveStorageConfig = () => {
         }
     
         return {
-            type: 's3',
+            type: STORAGE_TYPE.S3,
+            multerMode: MULTER_MODE.MEMORY,
             bucket: STORAGE_S3_BUCKET,
             region: STORAGE_S3_REGION,
             accessKey: STORAGE_S3_ACCESS_KEY,

@@ -1,7 +1,7 @@
 import express from 'express';
-import createMulterConfig from '../utils/multerConfig.js';
+import config from '../config/config.js';
 import { PROMO_STORAGE_PATH } from '../config/paths.js';
-import { ALLOWED_IMAGE_MIME_TYPES, MAX_PROMO_IMAGE_SIZE_MB } from '../../shared/constants.js';
+import createMulterConfig from '../utils/multerConfig.js';
 import {
     verifyAuth, verifyUser, verifyRole,
     optionalAuth, optionalUser, optionalRole
@@ -13,11 +13,19 @@ import {
     handlePromoUpdateRequest,
     handlePromoDeleteRequest
 } from '../controllers/promoController.js';
+import {
+    ALLOWED_IMAGE_MIME_TYPES,
+    MAX_PROMO_IMAGE_SIZE_MB,
+    SERVER_CONSTANTS
+} from '../../shared/constants.js';
+
+const { MULTER_MODE } = SERVER_CONSTANTS;
 
 const uploadImage = createMulterConfig({
     type: 'single',
     fields: 'image',
-    storagePath: PROMO_STORAGE_PATH,
+    storageMode: config.storage.multerMode,
+    storagePath: config.storage.multerMode === MULTER_MODE.DISK ? PROMO_STORAGE_PATH : null,
     allowedMimeTypes: ALLOWED_IMAGE_MIME_TYPES,
     maxSizeMB: MAX_PROMO_IMAGE_SIZE_MB
 });

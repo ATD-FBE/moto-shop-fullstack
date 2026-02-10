@@ -2,6 +2,9 @@ import multer from 'multer';
 import { extname } from 'path';
 import { randomUUID } from 'crypto';
 import { typeCheck } from './typeValidation.js';
+import { SERVER_CONSTANTS } from '../../shared/constants.js';
+
+const { MULTER_MODE } = SERVER_CONSTANTS;
 
 const getMulterErrorMap = (context) => ({
     LIMIT_UNEXPECTED_FILE: { // Возникает при превышении лимита количества файлов ОДНОГО ПОЛЯ
@@ -26,6 +29,7 @@ const createMulterConfig = ({
     type,
     fields,
     filesLimit = 1,
+    storageMode = MULTER_MODE.DISK,
     storagePath,
     allowedMimeTypes,
     maxSizeMB
@@ -91,7 +95,11 @@ const createMulterConfig = ({
         throw new TypeError('filesLimit должен быть натуральным числом или undefined');
     }
 
-    if (!typeCheck.string(storagePath) || storagePath.trim() === '') {
+    if (![MULTER_MODE.DISK, MULTER_MODE.MEMORY].includes(storageMode)) {
+        throw new TypeError('Некорректный storageMode');
+    }
+
+    if (storageMode === MULTER_MODE.DISK && (!typeCheck.string(storagePath) || storagePath.trim() === '')) {
         throw new TypeError('storagePath должен быть непустой строкой');
     }
 
@@ -108,14 +116,16 @@ const createMulterConfig = ({
     }
 
     // Настройка хранения файла
-    const storage = multer.diskStorage({
-        destination: (req, file, cb) => {
-            cb(null, storagePath);
-        },
-        filename: (req, file, cb) => {
-            cb(null, `${randomUUID()}${extname(file.originalname)}`);
-        }
-    });
+    const storage = storageMode === MULTER_MODE.MEMORY
+        ? multer.memoryStorage()
+        : multer.diskStorage({
+            destination: (req, file, cb) => {
+                cb(null, storagePath);
+            },
+            filename: (req, file, cb) => {
+                cb(null, `${randomUUID()}${extname(file.originalname)}`);
+            }
+        });
 
     // Фильтрация файлов
     const fileFilter = (req, file, cb) => {

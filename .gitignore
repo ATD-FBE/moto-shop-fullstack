@@ -1,5 +1,5 @@
-node_modules
-_logs
-storage
-server/config/.env*
-Info.txt
+/node_modules
+/_logs
+/storage
+/server/config/.env*
+/*.txt

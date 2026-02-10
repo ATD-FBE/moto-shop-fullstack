@@ -1,6 +1,9 @@
 import { join } from 'path';
 import config from '../config/config.js';
 import { BUILD_ROOT, STORAGE_ROOT, STORAGE_URL_PATH } from '../config/paths.js';
+import { SERVER_CONSTANTS } from '../../shared/constants.js';
+
+const { STORAGE_TYPE } = SERVER_CONSTANTS;
 
 export const serveStaticFiles = (express) => {
     if (config.env !== 'production') return (req, res, next) => next();
@@ -14,12 +17,12 @@ export const serveStorageFiles = async (req, res, next) => {
         return res.status(404).end();
     }
 
-    if (config.storage.type === 'fs') {
+    if (config.storage.type === STORAGE_TYPE.FS) {
         const filePath = join(STORAGE_ROOT, storageKey);
         return res.sendFile(filePath);
     }
 
-    /*if (config.storage.type === 's3') {
+    /*if (config.storage.type === STORAGE_TYPE.S3) {
         const stream = s3.getObject({
             Bucket: S3_BUCKET,
             Key: storageKey

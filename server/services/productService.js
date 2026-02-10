@@ -4,8 +4,8 @@ import User from '../database/models/User.js';
 import Product from '../database/models/Product.js';
 import {
     PRODUCT_STORAGE_FOLDER,
-    ORIGINALS_FOLDER,
-    THUMBNAILS_FOLDER,
+    PRODUCT_ORIGINALS_FOLDER,
+    PRODUCT_THUMBNAILS_FOLDER,
     STORAGE_URL_PATH
 } from '../config/paths.js';
 import {
@@ -54,7 +54,7 @@ const prepareProductImages = (productId, imageFilenames) => {
             STORAGE_URL_PATH,
             PRODUCT_STORAGE_FOLDER,
             productId,
-            ORIGINALS_FOLDER,
+            PRODUCT_ORIGINALS_FOLDER,
             filename
         ].join('/'),
         thumbnails: Object.entries(PRODUCT_THUMBNAIL_PRESETS).reduce((acc, [key, size]) => {
@@ -62,7 +62,7 @@ const prepareProductImages = (productId, imageFilenames) => {
                 STORAGE_URL_PATH,
                 PRODUCT_STORAGE_FOLDER,
                 productId,
-                THUMBNAILS_FOLDER,
+                PRODUCT_THUMBNAILS_FOLDER,
                 `${size}px`,
                 filename
             ].join('/');

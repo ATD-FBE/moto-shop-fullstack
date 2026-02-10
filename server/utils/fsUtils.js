@@ -16,12 +16,12 @@ export const cleanupFiles = async (filePaths, req) => {
     );
 };
 
-export const cleanupFolder = async (folderPath, req) => {
-    if (!folderPath) return;
+export const cleanupDir = async (dirPath, req) => {
+    if (!dirPath) return;
     
     try {
-        await fsp.rm(folderPath, { recursive: true, force: true });
+        await fsp.rm(dirPath, { recursive: true, force: true });
     } catch (err) {
-        log.error(`${req.logCtx} - Не удалось удалить папку ${folderPath}:`, err);
+        log.error(`${req.logCtx} - Не удалось удалить папку ${dirPath}:`, err);
     }
 };

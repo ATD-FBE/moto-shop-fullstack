@@ -35,6 +35,7 @@ import { STORAGE_URL_PATH } from './config/paths.js';
 
 // Внутренние модули
 import { connectMongoDB, shutdownMongoDB } from './database/mongoDB.js';
+import { storageService } from './services/storage/storageService.js';
 import { isCriticalError } from './utils/errorUtils.js';
 import { startExpiredOrderDraftCleaner } from './services/cron/expiredOrderDraftCleaner.js';
 import { startInitOnlineTransactionCleaner } from './services/cron/initOnlineTransactionCleaner.js';
@@ -59,7 +60,7 @@ const sseCorsOptions = {
 };
 
 app.use(serveStaticFiles(express)); // Работает в продакшне
-app.use(STORAGE_URL_PATH, serveStorageFiles(express));
+app.get(`${STORAGE_URL_PATH}/*`, serveStorageFiles);
 
 app.use(requestContext);
 app.use(errorTracker);
@@ -121,6 +122,7 @@ const startCronJobs = () => {
 const startServer = async () => {
     try {
         await connectMongoDB();
+        await storageService.initStorage();
         startCronJobs();
 
         const server = createServer(PROTOCOL, HOST);

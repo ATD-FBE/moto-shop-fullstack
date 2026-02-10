@@ -4,7 +4,7 @@ import Order from '../database/models/Order.js';
 import Counter from '../database/models/Counter.js';
 import {
     PRODUCT_STORAGE_PATH,
-    THUMBNAILS_FOLDER,
+    PRODUCT_THUMBNAILS_FOLDER,
     ORDER_STORAGE_PATH
 } from '../config/paths.js';
 import * as sseOrderManagement from '../services/sse/sseOrderManagementService.js';
@@ -25,7 +25,7 @@ import {
 } from '../utils/normalizeUtils.js';
 import { typeCheck, validateInputTypes } from '../utils/typeValidation.js';
 import { runInTransaction } from '../utils/transaction.js';
-import { cleanupFolder } from '../utils/fsUtils.js';
+import { cleanupDir } from '../utils/fsUtils.js';
 import { createAppError, prepareAppErrorData } from '../utils/errorUtils.js';
 import { parseValidationErrors } from '../utils/errorUtils.js';
 import safeSendResponse from '../utils/safeSendResponse.js';
@@ -728,7 +728,7 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
                     const thumbImagePath = join(
                         PRODUCT_STORAGE_PATH,
                         productId,
-                        THUMBNAILS_FOLDER,
+                        PRODUCT_THUMBNAILS_FOLDER,
                         `${thumbImageSize}px`,
                         imageFilename
                     );
@@ -815,7 +815,7 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
         safeSendResponse(req, res, statusCode, responseData);
     } catch (err) {
         // Очистка папки файлов заказа (безопасно)
-        await cleanupFolder(orderFilesDir, req);
+        await cleanupDir(orderFilesDir, req);
 
         // Обработка контролируемой ошибки
         if (err.isAppError) {

@@ -25,8 +25,8 @@ export const PROMO_STORAGE_PATH = join(STORAGE_ROOT, PROMO_STORAGE_FOLDER);
 export const PRODUCT_STORAGE_FOLDER = 'products';
 export const PRODUCT_STORAGE_PATH = join(STORAGE_ROOT, PRODUCT_STORAGE_FOLDER);
 
-export const ORIGINALS_FOLDER = 'originals';
-export const THUMBNAILS_FOLDER = 'thumbnails';
+export const PRODUCT_ORIGINALS_FOLDER = 'originals';
+export const PRODUCT_THUMBNAILS_FOLDER = 'thumbnails';
 
 export const ORDER_STORAGE_FOLDER = 'orders';
 export const ORDER_STORAGE_PATH = join(STORAGE_ROOT, ORDER_STORAGE_FOLDER);

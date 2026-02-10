@@ -5,11 +5,9 @@ export async function runInTransaction(handler, options = {}) {
     const session = await mongoose.startSession();
 
     try {
-        let result;
-
         // Начало транзакции
-        await session.withTransaction(async () => {
-            result = await handler(session);
+        const result = await session.withTransaction(async () => {
+            return await handler(session);
         }, options);
 
         return result;

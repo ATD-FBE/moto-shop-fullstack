@@ -11,7 +11,11 @@ import {
     PRODUCT_THUMBNAIL_PRESETS,
     PRODUCT_FILES_LIMIT
 } from '../../shared/constants.js';
-import { PRODUCT_STORAGE_PATH, ORIGINALS_FOLDER, THUMBNAILS_FOLDER } from '../config/paths.js';
+import {
+    PRODUCT_STORAGE_PATH,
+    PRODUCT_ORIGINALS_FOLDER,
+    PRODUCT_THUMBNAILS_FOLDER
+} from '../config/paths.js';
 import {
     prepareProductData,
     redistributeProductProportionallyInDraftOrders,
@@ -30,7 +34,7 @@ import { runInTransaction } from '../utils/transaction.js';
 import { isArrayContentDifferent } from '../utils/compareUtils.js';
 import { createAppError, prepareAppErrorData } from '../utils/errorUtils.js';
 import { parseValidationErrors } from '../utils/errorUtils.js';
-import { cleanupFiles, cleanupFolder } from '../utils/fsUtils.js';
+import { cleanupFiles, cleanupDir } from '../utils/fsUtils.js';
 import safeSendResponse from '../utils/safeSendResponse.js';
 import { ensureArray } from '../../shared/commonHelpers.js';
 import { REQUEST_STATUS } from '../../shared/constants.js';
@@ -312,10 +316,10 @@ export const handleProductCreateRequest = async (req, res, next) => {
             productFilesDir = join(PRODUCT_STORAGE_PATH, newProductId);
             await fsp.mkdir(productFilesDir, { recursive: true });
     
-            const originalsDir = join(productFilesDir, ORIGINALS_FOLDER);
+            const originalsDir = join(productFilesDir, PRODUCT_ORIGINALS_FOLDER);
             await fsp.mkdir(originalsDir, { recursive: true });
     
-            const thumbnailsDir = join(productFilesDir, THUMBNAILS_FOLDER);
+            const thumbnailsDir = join(productFilesDir, PRODUCT_THUMBNAILS_FOLDER);
     
             for (const size of productThumbnailSizes) {
                 const thumbImgDir = join(thumbnailsDir, `${size}px`);
@@ -342,6 +346,9 @@ export const handleProductCreateRequest = async (req, res, next) => {
             newProductDoc.imageFilenames = imageFilenames;
         }
 
+        //await new Promise(res => setTimeout(res, 3000));
+        //throw new Error('Test Error');
+
         // Добавление лога создания и сохранение документа товара
         newProductDoc.createdBy = userId;
         await newProductDoc.save();
@@ -356,7 +363,7 @@ export const handleProductCreateRequest = async (req, res, next) => {
         // Очистка файлов фотографий и папки файлов товара (безопасно)
         if (images.length > 0) {
             await cleanupFiles(images.map(img => img.path), req);
-            await cleanupFolder(productFilesDir, req);
+            await cleanupDir(productFilesDir, req);
         }
 
         // Обработка контролируемой ошибки
@@ -545,8 +552,8 @@ export const handleProductUpdateRequest = async (req, res, next) => {
 
             // Перенос новых фотографий в папку файлов товара
             productFilesDir = join(PRODUCT_STORAGE_PATH, productId);
-            const originalsDir = join(productFilesDir, ORIGINALS_FOLDER);
-            const thumbnailsDir = join(productFilesDir, THUMBNAILS_FOLDER);
+            const originalsDir = join(productFilesDir, PRODUCT_ORIGINALS_FOLDER);
+            const thumbnailsDir = join(productFilesDir, PRODUCT_THUMBNAILS_FOLDER);
 
             if (images.length > 0) {
                 if (!currentImageFilenames.length) {
@@ -595,7 +602,7 @@ export const handleProductUpdateRequest = async (req, res, next) => {
                     });
                     await cleanupFiles(actualImagePathsToDelete, req);
                 } else {
-                    await cleanupFolder(productFilesDir, req);
+                    await cleanupDir(productFilesDir, req);
                 }
             }
 
@@ -614,7 +621,7 @@ export const handleProductUpdateRequest = async (req, res, next) => {
         if (currentImageFilenames?.length > 0) {
             await cleanupFiles(newImagePaths, req);
         } else {
-            await cleanupFolder(productFilesDir, req);
+            await cleanupDir(productFilesDir, req);
         }
 
         // Обработка контролируемой ошибки
@@ -799,7 +806,7 @@ export const handleProductDeleteRequest = async (req, res, next) => {
 
         // Удаление папки с файлами фотографий товара
         const productFilesDir = join(PRODUCT_STORAGE_PATH, productId);
-        await cleanupFolder(productFilesDir, req);
+        await cleanupDir(productFilesDir, req);
 
         safeSendResponse(req, res, 200, { message: `Товар "${dbProduct.name}" успешно удалён` });
     } catch (err) {
@@ -840,7 +847,7 @@ export const handleBulkProductDeleteRequest = async (req, res, next) => {
         const { deletedCount } = deletionResult;
 
         // Удаление папок с фотографиями товаров (безопасно)
-        await Promise.all(existingProductIds.map(id => cleanupFolder(join(PRODUCT_STORAGE_PATH, id), req)));
+        await Promise.all(existingProductIds.map(id => cleanupDir(join(PRODUCT_STORAGE_PATH, id), req)));
 
         // Отправка успешных ответов клиенту
         if (deletedCount < total) {

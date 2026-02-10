@@ -3,11 +3,11 @@ import { join } from 'path';
 import Promo from '../database/models/Promo.js';
 import { PROMO_STORAGE_PATH } from '../config/paths.js';
 import { preparePromoData } from '../services/promoService.js';
-//import { storageService } from '../services/storage/storageService.js';
+import { storageService } from '../services/storage/storageService.js';
 import { typeCheck, validateInputTypes } from '../utils/typeValidation.js';
 import { createAppError, prepareAppErrorData } from '../utils/errorUtils.js';
 import { parseValidationErrors } from '../utils/errorUtils.js';
-import { cleanupFiles, cleanupFolder } from '../utils/fsUtils.js';
+import { cleanupFiles, cleanupDir } from '../utils/fsUtils.js';
 import safeSendResponse from '../utils/safeSendResponse.js';
 import { PROMO_ANNOUNCE_OFFSET_DAYS } from '../../shared/constants.js';
 
@@ -86,11 +86,12 @@ export const handlePromoRequest = async (req, res, next) => {
 
 /// Создание акции ///
 export const handlePromoCreateRequest = async (req, res, next) => {
+    const logCtx = req.logCtx;
     const userId = req.dbUser._id;
     const { file: image, fileUploadError } = req; // Проверено в multer
     const { title, description, startDate, endDate } = req.body ?? {};
 
-    let promoFilesDir;
+    let newPromoId = null;
 
     // Создание документа в базе MongoDB
     try {
@@ -143,14 +144,10 @@ export const handlePromoCreateRequest = async (req, res, next) => {
         // Предварительная валидация до работы с файловой системой
         await newPromoDoc.validate({ pathsToSkip: ['imageFilename'] });
 
-        // Создание папки файлов акции, перемещение файла картинки и добавление URL картинки в БД
+        // Сохранение картинки акции в хранилище файлов и добавление URL картинки в БД
         if (image) {
-            const newPromoId = newPromoDoc._id.toString(); // ID создался при валидации
-            promoFilesDir = join(PROMO_STORAGE_PATH, newPromoId);
-            await fsp.mkdir(promoFilesDir, { recursive: true });
-
-            const newImagePath = join(promoFilesDir, image.filename);
-            await fsp.rename(image.path, newImagePath);
+            newPromoId = newPromoDoc._id.toString(); // ID создался при валидации
+            await storageService.savePromoImage({ promoId: newPromoId, tempFile: image });
 
             newPromoDoc.imageFilename = image.filename;
         }
@@ -164,8 +161,11 @@ export const handlePromoCreateRequest = async (req, res, next) => {
     } catch (err) {
         // Очистка файла картинки и папки файлов акции (безопасно)
         if (image) {
-            await cleanupFiles([image.path], req);
-            await cleanupFolder(promoFilesDir, req);
+            await storageService.deleteTempFiles({ tempFiles: [image], logCtx });
+
+            if (newPromoId) {
+                await storageService.cleanupPromoImage({ promoId: newPromoId, logCtx });
+            }
         }
 
         // Обработка контролируемой ошибки
@@ -189,12 +189,15 @@ export const handlePromoCreateRequest = async (req, res, next) => {
 
 /// Изменение акции ///
 export const handlePromoUpdateRequest = async (req, res, next) => {
+    const logCtx = req.logCtx;
     const userId = req.dbUser._id;
     const promoId = req.params.promoId;
     const { file: image, fileUploadError } = req; // Проверено в multer
     const { title, description, startDate, endDate, removeImage } = req.body ?? {};
 
-    let promoFilesDir, currentImageFilename;
+    const imageFilename = image ? image.filename : null;
+    let newImageApplied = false;
+    let hasCurrentImage = false;
 
     // Апдейт документа в базе MongoDB
     try {
@@ -227,13 +230,14 @@ export const handlePromoUpdateRequest = async (req, res, next) => {
         }
 
         const currentTitle = dbPromo.title;
-        currentImageFilename = dbPromo.imageFilename;
+        const currentImageFilename = dbPromo.imageFilename;
+        hasCurrentImage = Boolean(currentImageFilename);
         const shouldRemoveImage = removeImage === 'true';
     
         // Проверка на согласованность флага удаления старого файла картинки и нового файла
         if (
-            (currentImageFilename && image && !shouldRemoveImage) ||
-            (shouldRemoveImage && !currentImageFilename)
+            (hasCurrentImage && image && !shouldRemoveImage) ||
+            (shouldRemoveImage && !hasCurrentImage)
         ) {
             throw createAppError(400, 'Несогласованные данные для изображения акции');
         }
@@ -244,8 +248,7 @@ export const handlePromoUpdateRequest = async (req, res, next) => {
             description: description.trim()
         };
 
-        const imageFilename = image ? image.filename : null;
-        const newImageFilename = currentImageFilename
+        const newImageFilename = hasCurrentImage
             ? shouldRemoveImage ? imageFilename : currentImageFilename
             : imageFilename;
         dbPromo.imageFilename = newImageFilename;
@@ -280,16 +283,10 @@ export const handlePromoUpdateRequest = async (req, res, next) => {
         // Предварительная валидация до работы с файловой системой
         await dbPromo.validate();
 
-        // Создание папки файлов акции и перемещение файла картинки
-        promoFilesDir = join(PROMO_STORAGE_PATH, promoId);
-
+        // Сохранение нового файла картинки в хранилище файлов, если есть
         if (image) {
-            if (!currentImageFilename) {
-                await fsp.mkdir(promoFilesDir, { recursive: true });
-            }
-
-            const newImagePath = join(promoFilesDir, image.filename);
-            await fsp.rename(image.path, newImagePath);
+            await storageService.savePromoImage({ promoId, tempFile: image });
+            newImageApplied = true;
         }
         
         // Добавление лога редактирования и сохранение в базе MongoDB
@@ -299,22 +296,25 @@ export const handlePromoUpdateRequest = async (req, res, next) => {
         // Удаление старого файла картинки или папки файлов акции (безопасно)
         if (shouldRemoveImage) {
             if (image) {
-                const oldImagePath = join(promoFilesDir, currentImageFilename);
-                await cleanupFiles([oldImagePath], req);
+                await storageService.deletePromoImage({ promoId, filename: currentImageFilename, logCtx });
             } else {
-                await cleanupFolder(promoFilesDir, req);
+                await storageService.cleanupPromoImage({ promoId, logCtx });
             }
         }
 
         // Отправка успешного ответа клиенту
         safeSendResponse(req, res, 200, { message: `Акция "${currentTitle}" успешно изменена` });
     } catch (err) {
-        // Очистка нового файла картинки или созданной папки файлов акции (безопасно)
+        // Очистка нового файла картинки или всех созданных файлов акции (безопасно)
         if (image) {
-            if (currentImageFilename) {
-                await cleanupFiles([image.path], req);
+            if (hasCurrentImage) {
+                if (newImageApplied) {
+                    await storageService.deletePromoImage({ promoId, filename: imageFilename, logCtx });
+                } else {
+                    await storageService.deleteTempFiles({ tempFiles: [image], logCtx });
+                }
             } else {
-                await cleanupFolder(promoFilesDir, req);
+                await storageService.cleanupPromoImage({ promoId, logCtx });
             }
         }
 
@@ -354,8 +354,7 @@ export const handlePromoDeleteRequest = async (req, res, next) => {
         }
 
         // Удаление папки файлов акций, если она была
-        const promoFilesDir = join(PROMO_STORAGE_PATH, promoId);
-        await cleanupFolder(promoFilesDir, req);
+        await storageService.cleanupPromoImage({ promoId, logCtx: req.logCtx });
 
         safeSendResponse(req, res, 200, { message: `Акция "${dbPromo.title}" успешно удалена` });
     } catch (err) {

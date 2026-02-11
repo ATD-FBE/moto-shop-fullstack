@@ -1,8 +1,7 @@
-import { join } from 'path';
 import Order from '../../database/models/Order.js';
 import Product from '../../database/models/Product.js';
-import { ORDER_STORAGE_PATH } from '../../config/paths.js';
 import { ORDER_VIEW_MATRIX } from '../../config/viewPolicy.js';
+import { storageService } from '../../services/storage/storageService.js';
 import * as sseOrderManagement from '../../services/sse/sseOrderManagementService.js';
 import {
     orderDotNotationMap,
@@ -32,7 +31,6 @@ import { runInTransaction } from '../../utils/transaction.js';
 import { createAppError, prepareAppErrorData } from '../../utils/errorUtils.js';
 import { parseValidationErrors } from '../../utils/errorUtils.js';
 import safeSendResponse from '../../utils/safeSendResponse.js';
-import { cleanupFiles } from '../../utils/fsUtils.js';
 import { ordersFilterOptions } from '../../../shared/filterOptions.js';
 import { ordersSortOptions } from '../../../shared/sortOptions.js';
 import { ordersPageLimitOptions } from '../../../shared/pageLimitOptions.js';
@@ -538,6 +536,7 @@ export const handleOrderDetailsUpdateRequest = async (req, res, next) => {
 
 /// Изменение товаров подтверждённого заказа (SSE у клиента) ///
 export const handleOrderItemsUpdateRequest = async (req, res, next) => {
+    const logCtx = req.logCtx;
     const dbUser = req.dbUser;
 
     // Предварительная проверка формата данных
@@ -593,6 +592,8 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
     }
 
     try {
+        const imageFilenamesToDelete = [];
+
         const { orderLbl, updatedOrderData, itemsAdjustments } = await runInTransaction(async (session) => {
             const dbOrder = await Order.findById(orderId).session(session);
             const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
@@ -668,7 +669,7 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
                     item => item.productId.toString() === productId
                 );
 
-                if (quantity === 0) { // Удаление товара с количеством 0
+                if (quantity === 0) { // Удаление товара при указанном количестве 0
                     changes.push({
                         field: `items[${currentItemIdx}]`,
                         oldValue: JSON.stringify(currentItem),
@@ -676,10 +677,8 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
                     });
                     updatedItems.splice(currentItemIdx, 1);
 
-                    // Удаление картинки товара (безопасно)
                     if (currentItem.imageFilename) {
-                        const imagePath = join(ORDER_STORAGE_PATH, orderId, currentItem.imageFilename);
-                        await cleanupFiles([imagePath]);
+                        imageFilenamesToDelete.push(currentItem.imageFilename);
                     }
                 } else { // Установка нового количества и пересчёт суммы
                     const finalUnitPrice = currentItem.finalUnitPrice;
@@ -784,6 +783,11 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
 
             return { orderLbl, updatedOrderData, itemsAdjustments };
         });
+
+        // Удаление миниатюр фотографий товаров в заказе при удалении товаров (безопасно)
+        if (imageFilenamesToDelete.length > 0) {
+            await storageService.deleteOrderItemsImages(orderId, imageFilenamesToDelete, logCtx);
+        }
 
         // Отправка SSE-сообщения админам
         const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };

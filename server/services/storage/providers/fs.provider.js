@@ -1,12 +1,20 @@
 import { promises as fsp } from 'fs';
 import { join } from 'path';
+import sharp from 'sharp';
 import {
     STORAGE_ROOT,
     PROMO_STORAGE_PATH,
     PRODUCT_STORAGE_PATH,
+    PRODUCT_ORIGINALS_FOLDER,
+    PRODUCT_THUMBNAILS_FOLDER,
     ORDER_STORAGE_PATH
 } from '../../../config/paths.js';
 import log from '../../../utils/logger.js';
+import { PRODUCT_THUMBNAIL_PRESETS } from '../../../../shared/constants.js';
+
+sharp.cache(false); // Отменить кэширование оригинальных файлов картинок, чтобы они удалялись при ошибке
+
+const productThumbnailSizes = Object.values(PRODUCT_THUMBNAIL_PRESETS);
 
 export const fsStorageProvider = {
     initStorage: async () => {
@@ -18,48 +26,160 @@ export const fsStorageProvider = {
         ]);
     },
 
-    deleteTempFiles: async ({ tempFiles, logCtx }) => {
+    deleteTempFiles: async (tempFiles = [], logCtx) => {
         const tempFilePaths = tempFiles.map(file => file.path).filter(Boolean);
         await cleanupFiles(tempFilePaths, logCtx);
     },
     
-    savePromoImage: async ({ promoId, tempFile }) => {
+    /// Promo ///
+    savePromoImage: async (promoId, tempFile) => {
+        if (!promoId || !tempFile) {
+            throw new Error('Критические данные отсутствуют или неверны в savePromoImage');
+        }
+
         const promoDir = join(PROMO_STORAGE_PATH, promoId);
         await ensureDir(promoDir);
 
-        const targetPath = join(promoDir, tempFile.filename);
-        await moveFile(tempFile.path, targetPath);
+        const destPath = join(promoDir, tempFile.filename);
+        await moveFile(tempFile.path, destPath);
     },
 
-    deletePromoImage: async ({ promoId, filename, logCtx }) => {
+    deletePromoImage: async (promoId, filename, logCtx) => {
+        if (!promoId || !filename) return;
+
         const filePath = join(PROMO_STORAGE_PATH, promoId, filename);
         await cleanupFiles([filePath], logCtx);
     },
 
-    cleanupPromoImage: async ({ promoId, logCtx }) => {
+    cleanupPromoFiles: async (promoId, logCtx) => {
+        if (!promoId) return;
+
         const promoDir = join(PROMO_STORAGE_PATH, promoId);
         await cleanupDir(promoDir, logCtx);
     },
+
+    /// Product ///
+    saveProductImages: async (productId, tempFiles = []) => {
+        if (!productId || !tempFiles.length) {
+            throw new Error('Критические данные отсутствуют или неверны в saveProductImages');
+        }
+    
+        // Создание папок для хранения фотографий товаров
+        const productDir = join(PRODUCT_STORAGE_PATH, productId);
+        const originalsDir = join(productDir, PRODUCT_ORIGINALS_FOLDER);
+        const thumbnailsDir = join(productDir, PRODUCT_THUMBNAILS_FOLDER);
+
+        await ensureDir(originalsDir); // productDir создастся рекурсивно
+
+        for (const size of productThumbnailSizes) {
+            const thumbImgDir = join(thumbnailsDir, `${size}px`);
+            await ensureDir(thumbImgDir); // thumbnailsDir создастся рекурсивно
+        }
+
+        // Обработка временных файлов
+        for (const file of tempFiles) {
+            // Перемещение оригинального файла
+            const filename = file.filename;
+            const origImagePath = join(originalsDir, filename);
+            await moveFile(file.path, origImagePath);
+    
+            // Генерация превьюшек
+            for (const size of productThumbnailSizes) {
+                const thumbImagePath = join(thumbnailsDir, `${size}px`, filename);
+
+                await sharp(origImagePath)
+                    .resize(size, size, { fit: 'inside' }) // Сохранение пропорций со стороной size
+                    .toFile(thumbImagePath);
+            }
+        }
+    },
+
+    deleteProductImages: async (productId, filenames = [], logCtx) => {
+        if (!productId || !filenames.length) return;
+
+        const productDir = join(PRODUCT_STORAGE_PATH, productId);
+        const originalsDir = join(productDir, PRODUCT_ORIGINALS_FOLDER);
+        const thumbnailsDir = join(productDir, PRODUCT_THUMBNAILS_FOLDER);
+
+        const filePaths = filenames.flatMap(filename => {
+            return [
+                join(originalsDir, filename),
+                ...productThumbnailSizes.map(size => join(thumbnailsDir, `${size}px`, filename))
+            ];
+        });
+        await cleanupFiles(filePaths, logCtx);
+    },
+
+    cleanupProductFiles: async (productId, logCtx) => {
+        if (!productId) return;
+
+        const productDir = join(PRODUCT_STORAGE_PATH, productId);
+        await cleanupDir(productDir, logCtx);
+    },
+
+    /// Order ///
+    saveOrderItemsImages: async (orderId, items = []) => {
+        if (!orderId || !items.length) {
+            throw new Error('Критические данные отсутствуют или неверны в saveOrderItemsImages');
+        }
+    
+        const orderDir = join(ORDER_STORAGE_PATH, orderId);
+        await ensureDir(orderDir);
+    
+        for (const item of items) {
+            if (!item.imageFilename) continue;
+    
+            const thumbImageSize = PRODUCT_THUMBNAIL_PRESETS.small;
+            const srcPath = join(
+                PRODUCT_STORAGE_PATH,
+                item.productId.toString(),
+                PRODUCT_THUMBNAILS_FOLDER,
+                `${thumbImageSize}px`,
+                item.imageFilename
+            );
+            const destPath = join(orderDir, item.imageFilename);
+
+            await copyFile(srcPath, destPath);
+        }
+    },
+
+    deleteOrderItemsImages: async (orderId, filenames = [], logCtx) => {
+        if (!orderId || !filenames.length) return;
+
+        const filePaths = filenames.map(filename => join(ORDER_STORAGE_PATH, orderId, filename));
+        await cleanupFiles(filePaths, logCtx);
+    },
+
+    cleanupOrderFiles: async (orderId, logCtx) => {
+        if (!orderId) return;
+
+        const orderDir = join(ORDER_STORAGE_PATH, orderId);
+        await cleanupDir(orderDir, logCtx);
+    }
 };
 
 const ensureDir = async (dirPath) => {
     await fsp.mkdir(dirPath, { recursive: true }); // recursive: true - создание промежуточных директорий
 };
 
-const moveFile = async (sourcePath, targetPath) => {
+const moveFile = async (srcPath, destPath) => {
     try {
-        await fsp.rename(sourcePath, targetPath);
+        await fsp.rename(srcPath, destPath);
     } catch (err) {
         if (err.code === 'EXDEV') {
-            await fsp.copyFile(sourcePath, targetPath);
-            await fsp.unlink(sourcePath);
+            await fsp.copyFile(srcPath, destPath);
+            await fsp.unlink(srcPath);
         } else {
             throw err;
         }
     }
 };
 
-const cleanupFiles = async (filePaths, logCtx) => {
+const copyFile = async (srcPath, destPath) => {
+    await fsp.copyFile(srcPath, destPath);
+};
+
+const cleanupFiles = async (filePaths, logCtx = 'Неизвестный запрос') => {
     if (!filePaths.length) return;
     
     await Promise.all(
@@ -67,13 +187,13 @@ const cleanupFiles = async (filePaths, logCtx) => {
             try {
                 await fsp.rm(path, { force: true }); // force: true - нет ошибки при отсутствии файла
             } catch (err) {
-                log.error(`${logCtx} - Ошибка удаления файла "${path}":`, err);
+                log.error(`${logCtx} - Не удалось удалить файл "${path}":`, err);
             }
         })
     );
 };
 
-const cleanupDir = async (dirPath, logCtx) => {
+const cleanupDir = async (dirPath, logCtx = 'Неизвестный запрос') => {
     if (!dirPath) return;
     
     try {

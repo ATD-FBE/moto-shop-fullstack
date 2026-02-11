@@ -1,21 +1,10 @@
-import { promises as fsp } from 'fs';
-import { join } from 'path';
-import sharp from 'sharp';
 import Product from '../database/models/Product.js';
 import Category from '../database/models/Category.js';
+import { storageService } from '../services/storage/storageService.js';
 import { productsFilterOptions, productEditorFilterOptions } from '../../shared/filterOptions.js';
 import { productsSortOptions, productEditorSortOptions } from '../../shared/sortOptions.js';
 import { productsPageLimitOptions, productEditorPageLimitOptions } from '../../shared/pageLimitOptions.js';
-import {
-    DEFAULT_SEARCH_TYPE,
-    PRODUCT_THUMBNAIL_PRESETS,
-    PRODUCT_FILES_LIMIT
-} from '../../shared/constants.js';
-import {
-    PRODUCT_STORAGE_PATH,
-    PRODUCT_ORIGINALS_FOLDER,
-    PRODUCT_THUMBNAILS_FOLDER
-} from '../config/paths.js';
+import { DEFAULT_SEARCH_TYPE, PRODUCT_FILES_LIMIT } from '../../shared/constants.js';
 import {
     prepareProductData,
     redistributeProductProportionallyInDraftOrders,
@@ -34,14 +23,9 @@ import { runInTransaction } from '../utils/transaction.js';
 import { isArrayContentDifferent } from '../utils/compareUtils.js';
 import { createAppError, prepareAppErrorData } from '../utils/errorUtils.js';
 import { parseValidationErrors } from '../utils/errorUtils.js';
-import { cleanupFiles, cleanupDir } from '../utils/fsUtils.js';
 import safeSendResponse from '../utils/safeSendResponse.js';
 import { ensureArray } from '../../shared/commonHelpers.js';
 import { REQUEST_STATUS } from '../../shared/constants.js';
-
-sharp.cache(false); // Отменить кэширование оригинальных файлов картинок, чтобы они удалялись при ошибке
-
-const productThumbnailSizes = Object.values(PRODUCT_THUMBNAIL_PRESETS);
 
 /// Загрузка ID всех отфильтрованных товаров и данных товаров для одной страницы ///
 export const handleProductListRequest = async (req, res, next) => {
@@ -102,10 +86,11 @@ export const handleProductListRequest = async (req, res, next) => {
         const filteredProductIdList = aggregateResult[0]?.filteredProductIdList.map(c => c._id) || [];
         const dbPaginatedProductList = aggregateResult[0]?.paginatedProductList || [];
 
-        const now = Date.now();
+        console.log(dbPaginatedProductList);
+
         const paginatedProductList = dbPaginatedProductList.map(product => prepareProductData(product, {
             managed: isAdmin,
-            now
+            now: Date.now()
         }));
 
         safeSendResponse(req, res, 200, {
@@ -203,6 +188,7 @@ export const handleProductRequest = async (req, res, next) => {
 
 /// Создание товара ///
 export const handleProductCreateRequest = async (req, res, next) => {
+    const logCtx = req.logCtx;
     const userId = req.dbUser._id;
     const { files: images, fileUploadError } = req; // Проверено в multer
     const {
@@ -210,7 +196,7 @@ export const handleProductCreateRequest = async (req, res, next) => {
         stock, unit, price, discount, category, tags, isActive
     } = req.body ?? {};
     
-    let productFilesDir;
+    let newProductId;
 
     try {
         // Предварительная проверка формата данных
@@ -309,61 +295,27 @@ export const handleProductCreateRequest = async (req, res, next) => {
         // Предварительная валидация до работы с файловой системой
         await newProductDoc.validate({ pathsToSkip: ['imageFilenames'] });
 
-        // Перенос файлов фотографий в папку файлов товара и создание иконок
+        // Перенос файлов фотографий в хранилище файлов товара и создание иконок
         if (images.length > 0) {
-            // Создание папок для хранения фотографий товаров
-            const newProductId = newProductDoc._id.toString(); // ID создался при валидации
-            productFilesDir = join(PRODUCT_STORAGE_PATH, newProductId);
-            await fsp.mkdir(productFilesDir, { recursive: true });
-    
-            const originalsDir = join(productFilesDir, PRODUCT_ORIGINALS_FOLDER);
-            await fsp.mkdir(originalsDir, { recursive: true });
-    
-            const thumbnailsDir = join(productFilesDir, PRODUCT_THUMBNAILS_FOLDER);
-    
-            for (const size of productThumbnailSizes) {
-                const thumbImgDir = join(thumbnailsDir, `${size}px`);
-                await fsp.mkdir(thumbImgDir, { recursive: true });
-            }
-
-            const imageFilenames = [];
-
-            for (const img of images) {
-                const origImagePath = join(originalsDir, img.filename);
-                await fsp.rename(img.path, origImagePath);
-
-                for (const size of productThumbnailSizes) {
-                    const thumbImagePath = join(thumbnailsDir, `${size}px`, img.filename);
-            
-                    await sharp(origImagePath)
-                        .resize(size, size, { fit: 'inside' }) // Сохранение пропорций со стороной size
-                        .toFile(thumbImagePath);
-                }
-    
-                imageFilenames.push(img.filename);
-            }
-    
-            newProductDoc.imageFilenames = imageFilenames;
+            newProductId = newProductDoc._id.toString(); // ID создался при валидации
+            await storageService.saveProductImages(newProductId, images);
+            newProductDoc.imageFilenames = images.map(img => img.filename);
         }
-
-        //await new Promise(res => setTimeout(res, 3000));
-        //throw new Error('Test Error');
 
         // Добавление лога создания и сохранение документа товара
         newProductDoc.createdBy = userId;
         await newProductDoc.save();
 
         // Отправка успешного ответа клиенту
-
         safeSendResponse(req, res, 201, {
             message: `Товар "${newProductDoc.name}" успешно создан`,
             newProduct: prepareProductData(newProductDoc, { managed: true })
         });
     } catch (err) {
-        // Очистка файлов фотографий и папки файлов товара (безопасно)
+        // Очистка файлов фотографий товара в хранилище (безопасно)
         if (images.length > 0) {
-            await cleanupFiles(images.map(img => img.path), req);
-            await cleanupDir(productFilesDir, req);
+            await storageService.deleteTempFiles(images, logCtx);
+            await storageService.cleanupProductFiles(newProductId, logCtx);
         }
 
         // Обработка контролируемой ошибки
@@ -387,6 +339,7 @@ export const handleProductCreateRequest = async (req, res, next) => {
 
 /// Изменение товара ///
 export const handleProductUpdateRequest = async (req, res, next) => {
+    const logCtx = req.logCtx;
     const userId = req.dbUser._id;
     const productId = req.params.productId;
     const imageFilenamesToDelete = ensureArray(req.body?.imageFilenamesToDelete);
@@ -396,8 +349,8 @@ export const handleProductUpdateRequest = async (req, res, next) => {
         stock, unit, price, discount, category, tags, isActive
     } = req.body ?? {};
 
-    const newImagePaths = [];
-    let currentImageFilenames, productFilesDir;
+    const newImageFilenames = images.map(img => img.filename);
+    let hasCurrentImages = false;
 
     try {
         // Предварительная проверка формата данных
@@ -439,6 +392,8 @@ export const handleProductUpdateRequest = async (req, res, next) => {
         }
 
         // Транзакция MongoDB
+        let filesToDeleteData = null;
+
         const updatedDbProduct = await runInTransaction(async (session) => {
             // Проверка на существование изменяемого товара
             const dbProduct = await Product.findById(productId).session(session);
@@ -468,31 +423,31 @@ export const handleProductUpdateRequest = async (req, res, next) => {
             }
 
             // Фильтрация существующих имён файлов фотографий для удаления и их апдейт
-            currentImageFilenames = dbProduct.imageFilenames;
-            const actualImageFilenamesToDelete = imageFilenamesToDelete
+            const currentImageFilenames = dbProduct.imageFilenames;
+            hasCurrentImages = currentImageFilenames.length > 0;
+            const actualImgFilenamesToDelete = imageFilenamesToDelete
                 .filter(filename => currentImageFilenames.includes(filename));
-            const imageFilenamesToDeleteSet = new Set(actualImageFilenamesToDelete);
-            const newImageFilenames = images.map(img => img.filename);
-            const preparedImageFilenames = currentImageFilenames
-                .filter(filename => !imageFilenamesToDeleteSet.has(filename))
+            const imgFilenamesToDeleteSet = new Set(actualImgFilenamesToDelete);
+            const preparedImgFilenames = currentImageFilenames
+                .filter(filename => !imgFilenamesToDeleteSet.has(filename))
                 .concat(newImageFilenames);
 
             // Проверка на согласованность индекса и изменённого количества фотографий
-            const noImagesLeft = preparedImageFilenames.length === 0;
-            const indexOutOfRange = mainImageIndexNum >= preparedImageFilenames.length;
+            const noImagesLeft = preparedImgFilenames.length === 0;
+            const indexOutOfRange = mainImageIndexNum >= preparedImgFilenames.length;
 
             if (
-                (preparedImageFilenames.length > 0 && mainImageIndex === undefined) ||
+                (preparedImgFilenames.length > 0 && mainImageIndex === undefined) ||
                 (!fileUploadError && mainImageIndex !== undefined && (noImagesLeft || indexOutOfRange))
             ) {
                 throw createAppError(400, 'Несогласованные данные для фотографий товара');
             }
 
-            // Проверка на изменение массивов фотографий и тегов
+            // Проверка на изменение и установка в документ массивов фотографий и тегов
             const preparedTags = [...new Set(tags?.split(',').map(tag => tag.trim()).filter(Boolean) ?? [])];
 
             const modifiableArrayFields = [
-                ['imageFilenames', preparedImageFilenames],
+                ['imageFilenames', preparedImgFilenames],
                 ['tags', preparedTags]
             ];
 
@@ -540,7 +495,7 @@ export const handleProductUpdateRequest = async (req, res, next) => {
                 const { field, type, message } = fileUploadError; // field = 'images' - поле из формы
                 dbProduct.invalidate(field, message);
             }
-            if (preparedImageFilenames.length > PRODUCT_FILES_LIMIT) {
+            if (preparedImgFilenames.length > PRODUCT_FILES_LIMIT) {
                 dbProduct.invalidate('images'); // Превышение лимита общего количества фотографий
             }
             if (!Number.isInteger(prepDbFields.stock)) {
@@ -550,36 +505,9 @@ export const handleProductUpdateRequest = async (req, res, next) => {
             // Предварительная валидация до работы с файловой системой
             await dbProduct.validate({ pathsToSkip: ['imageFilenames', 'tags'] });
 
-            // Перенос новых фотографий в папку файлов товара
-            productFilesDir = join(PRODUCT_STORAGE_PATH, productId);
-            const originalsDir = join(productFilesDir, PRODUCT_ORIGINALS_FOLDER);
-            const thumbnailsDir = join(productFilesDir, PRODUCT_THUMBNAILS_FOLDER);
-
+            // Перенос новых фотографий в хранилище файлов товара
             if (images.length > 0) {
-                if (!currentImageFilenames.length) {
-                    await fsp.mkdir(productFilesDir, { recursive: true });
-                    await fsp.mkdir(originalsDir, { recursive: true });
-    
-                    for (const size of productThumbnailSizes) {
-                        const thumbImgDir = join(thumbnailsDir, `${size}px`);
-                        await fsp.mkdir(thumbImgDir, { recursive: true });
-                    }
-                }
-
-                for (const img of images) {
-                    const origImagePath = join(originalsDir, img.filename);
-                    await fsp.rename(img.path, origImagePath);
-                    newImagePaths.push(origImagePath);
-
-                    for (const size of productThumbnailSizes) {
-                        const thumbImagePath = join(thumbnailsDir, `${size}px`, img.filename);
-                
-                        await sharp(origImagePath)
-                            .resize(size, size, { fit: 'inside' }) // Сохранение пропорций со стороной size
-                            .toFile(thumbImagePath);
-                        newImagePaths.push(thumbImagePath);
-                    }
-                }
+                await storageService.saveProductImages(productId, images);
             }
 
             // Добавление лога редактирования и сохранение в базе MongoDB с валидацией полей
@@ -591,23 +519,25 @@ export const handleProductUpdateRequest = async (req, res, next) => {
                 await redistributeProductProportionallyInDraftOrders(productId, newStock, session);
             }
 
-            // Удаление выбранных для удаления файлов старых фотографий (безопасно)
-            if (actualImageFilenamesToDelete.length > 0) {
-                if (preparedImageFilenames.length > 0) {
-                    const actualImagePathsToDelete = actualImageFilenamesToDelete.flatMap(filename => {
-                        return [
-                            join(originalsDir, filename),
-                            ...productThumbnailSizes.map(size => join(thumbnailsDir, `${size}px`, filename))
-                        ];
-                    });
-                    await cleanupFiles(actualImagePathsToDelete, req);
-                } else {
-                    await cleanupDir(productFilesDir, req);
-                }
+            // Подготовка данных для удаления файлов после транзакции
+            if (actualImgFilenamesToDelete.length > 0) {
+                filesToDeleteData = {
+                    filenames: actualImgFilenamesToDelete,
+                    deleteAll: preparedImgFilenames.length === 0
+                };
             }
 
             return dbProduct;
         });
+
+        // Удаление выбранных файлов старых фотографий товара (безопасно)
+        if (filesToDeleteData) {
+            if (filesToDeleteData.deleteAll) {
+                await storageService.cleanupProductFiles(productId, logCtx);
+            } else {
+                await storageService.deleteProductImages(productId, filesToDeleteData.filenames, logCtx);
+            }
+        }
 
         // Отправка успешного ответа клиенту
         safeSendResponse(req, res, 200, {
@@ -615,13 +545,15 @@ export const handleProductUpdateRequest = async (req, res, next) => {
             updatedProduct: prepareProductData(updatedDbProduct, { managed: true })
         });
     } catch (err) {
-        // Очистка новых файлов фотографий или созданной папки файлов товара (безопасно)
-        await cleanupFiles(images.map(img => img.path), req);
-        
-        if (currentImageFilenames?.length > 0) {
-            await cleanupFiles(newImagePaths, req);
-        } else {
-            await cleanupDir(productFilesDir, req);
+        // Очистка новых файлов фотографий товара (безопасно)
+        if (images.length > 0) {
+            await storageService.deleteTempFiles(images, logCtx);
+
+            if (hasCurrentImages) {
+                await storageService.deleteProductImages(productId, newImageFilenames, logCtx);
+            } else {
+                await storageService.cleanupProductFiles(productId, logCtx);
+            }
         }
 
         // Обработка контролируемой ошибки
@@ -790,6 +722,7 @@ export const handleBulkProductUpdateRequest = async (req, res, next) => {
 
 /// Удаление товара ///
 export const handleProductDeleteRequest = async (req, res, next) => {
+    const logCtx = req.logCtx;
     const productId = req.params.productId;
 
     if (!typeCheck.objectId(productId)) {
@@ -804,9 +737,8 @@ export const handleProductDeleteRequest = async (req, res, next) => {
             return safeSendResponse(req, res, 404, { message: `Товар (ID: ${productId}) не найден` });
         }
 
-        // Удаление папки с файлами фотографий товара
-        const productFilesDir = join(PRODUCT_STORAGE_PATH, productId);
-        await cleanupDir(productFilesDir, req);
+        // Удаление файлов фотографий товара, если они были (безопасно)
+        await storageService.cleanupProductFiles(productId, logCtx);
 
         safeSendResponse(req, res, 200, { message: `Товар "${dbProduct.name}" успешно удалён` });
     } catch (err) {
@@ -816,24 +748,26 @@ export const handleProductDeleteRequest = async (req, res, next) => {
 
 /// Удаление группы товаров ///
 export const handleBulkProductDeleteRequest = async (req, res, next) => {
+    const logCtx = req.logCtx;
+
+    // Предварительная проверка формата данных
+    const { productIds } = req.body ?? {};
+
+    if (!typeCheck.arrayOf(productIds, 'objectId', typeCheck) ) {
+        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: productIds' });
+    }
+
+    const uniqueProductIds = [...new Set(productIds)];
+    const total = uniqueProductIds.length;
+
+    if (!total) {
+        return safeSendResponse(req, res, 400, {
+            message: 'Товары для удаления не выбраны',
+            reason: REQUEST_STATUS.NO_SELECTION
+        });
+    }
+
     try {
-        // Предварительная проверка формата данных
-        const { productIds } = req.body ?? {};
-
-        if (!typeCheck.arrayOf(productIds, 'objectId', typeCheck) ) {
-            return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: productIds' });
-        }
-
-        const uniqueProductIds = [...new Set(productIds)];
-        const total = uniqueProductIds.length;
-
-        if (!total) {
-            return safeSendResponse(req, res, 400, {
-                message: 'Товары для удаления не выбраны',
-                reason: REQUEST_STATUS.NO_SELECTION
-            });
-        }
-
         // Поиск и сбор ID удаляемых товаров
         const existingProductDocs = await Product.find({ _id: { $in: uniqueProductIds } }, '_id');
         const existingProductIds = existingProductDocs.map(doc => doc._id.toString());
@@ -844,12 +778,13 @@ export const handleBulkProductDeleteRequest = async (req, res, next) => {
 
         // Поиск и удаление документа в базе MongoDB
         const deletionResult = await Product.deleteMany({ _id: { $in: existingProductIds } });
-        const { deletedCount } = deletionResult;
 
-        // Удаление папок с фотографиями товаров (безопасно)
-        await Promise.all(existingProductIds.map(id => cleanupDir(join(PRODUCT_STORAGE_PATH, id), req)));
+        // Удаление файлов фотографий товара, если они были (безопасно)
+        await Promise.all(existingProductIds.map(id => storageService.cleanupProductFiles(id, logCtx)));
 
         // Отправка успешных ответов клиенту
+        const { deletedCount } = deletionResult;
+
         if (deletedCount < total) {
             return safeSendResponse(req, res, 207, {
                 message: `Товары частично удалены: ${deletedCount} из ${total}`

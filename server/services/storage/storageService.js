@@ -24,6 +24,11 @@ export const storageService = {
     savePromoImage: provider.savePromoImage,
     deleteTempFiles: provider.deleteTempFiles,
     deletePromoImage: provider.deletePromoImage,
-    cleanupPromoImage: provider.cleanupPromoImage,
-
+    cleanupPromoFiles: provider.cleanupPromoFiles,
+    saveProductImages: provider.saveProductImages,
+    deleteProductImages: provider.deleteProductImages,
+    cleanupProductFiles: provider.cleanupProductFiles,
+    saveOrderItemsImages: provider.saveOrderItemsImages,
+    deleteOrderItemsImages: provider.deleteOrderItemsImages,
+    cleanupOrderFiles: provider.cleanupOrderFiles
 };

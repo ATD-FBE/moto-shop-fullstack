@@ -1,12 +1,6 @@
-import { promises as fsp } from 'fs';
-import { join } from 'path';
 import Order from '../database/models/Order.js';
 import Counter from '../database/models/Counter.js';
-import {
-    PRODUCT_STORAGE_PATH,
-    PRODUCT_THUMBNAILS_FOLDER,
-    ORDER_STORAGE_PATH
-} from '../config/paths.js';
+import { storageService } from '../services/storage/storageService.js';
 import * as sseOrderManagement from '../services/sse/sseOrderManagementService.js';
 import {
     prepareDraftOrderData,
@@ -25,7 +19,6 @@ import {
 } from '../utils/normalizeUtils.js';
 import { typeCheck, validateInputTypes } from '../utils/typeValidation.js';
 import { runInTransaction } from '../utils/transaction.js';
-import { cleanupDir } from '../utils/fsUtils.js';
 import { createAppError, prepareAppErrorData } from '../utils/errorUtils.js';
 import { parseValidationErrors } from '../utils/errorUtils.js';
 import safeSendResponse from '../utils/safeSendResponse.js';
@@ -33,7 +26,6 @@ import { calculateOrderTotals } from '../../shared/calculations.js';
 import {
     DISCOUNT_SOURCES,
     MIN_ORDER_AMOUNT,
-    PRODUCT_THUMBNAIL_PRESETS,
     ORDER_MODEL_TYPE,
     DELIVERY_METHOD,
     ORDER_STATUS,
@@ -497,6 +489,7 @@ export const handleOrderDraftUpdateRequest = async (req, res, next) => {
 
 /// Подтверждение оформления заказа ///
 export const handleOrderDraftConfirmRequest = async (req, res, next) => {
+    const logCtx = req.logCtx;
     const dbUser = req.dbUser;
     const customerId = dbUser._id;
     const customerDiscount = dbUser.discount;
@@ -549,7 +542,7 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
         return safeSendResponse(req, res, 400, { message: 'Несогласованные данные для метода доставки' });
     }
 
-    let orderFilesDir;
+    let confirmedOrderId;
 
     try {
         const orderLbl = `(ID: ${orderId})`;
@@ -700,10 +693,9 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
             await confirmedOrderDoc.validate({ pathsToSkip: ['orderNumber', 'items', 'confirmedAt'] });
 
             // Подготовка списка товаров подтверждённого заказа
-            const confirmedOrderId = confirmedOrderDoc._id.toString();
+            confirmedOrderId = confirmedOrderDoc._id.toString();
             const purchaseProductMap = new Map(purchaseProductList.map(prod => [prod.id.toString(), prod]));
-            const confirmedOrderItemList = [];
-            let isOrderFilesDirCreated = false;
+            const confirmedOrderItems = [];
 
             for (const orderItem of fixedDbOrderItems) {
                 const {
@@ -720,39 +712,13 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
                 if (!product) throw new Error(`Товар ${prodLbl} не найден в purchaseProductMap`);
 
                 const { images, mainImageIndex, sku, name, brand, unit } = product;
-                let imageFilename;
-
-                if (images.length > 0) {
-                    imageFilename = (images[mainImageIndex] ?? images[0]).filename;
-                    const thumbImageSize = PRODUCT_THUMBNAIL_PRESETS.small;
-                    const thumbImagePath = join(
-                        PRODUCT_STORAGE_PATH,
-                        productId,
-                        PRODUCT_THUMBNAILS_FOLDER,
-                        `${thumbImageSize}px`,
-                        imageFilename
-                    );
-
-                    try {
-                        await fsp.access(thumbImagePath);
-                    } catch {
-                        throw new Error(`Миниатюра для товара ${prodLbl} не найдена: ${thumbImagePath}`);
-                    }
-
-                    if (!isOrderFilesDirCreated) {
-                        orderFilesDir = join(ORDER_STORAGE_PATH, confirmedOrderId);
-                        await fsp.mkdir(orderFilesDir, { recursive: true });
-                        isOrderFilesDirCreated = true;
-                    }
-
-                    const orderImagePath = join(orderFilesDir, imageFilename);
-                    await fsp.copyFile(thumbImagePath, orderImagePath);
-                }
-
+                const imageFilename = images.length > 0
+                    ? (images[mainImageIndex] ?? images[0]).filename
+                    : undefined;
                 const finalUnitPrice = priceSnapshot * (1 - appliedDiscountSnapshot / 100);
                 const totalPrice = finalUnitPrice * quantity;
 
-                confirmedOrderItemList.push({
+                confirmedOrderItems.push({
                     productId: productObjectId,
                     imageFilename,
                     sku,
@@ -768,6 +734,9 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
                 });
             }
 
+            // Сохранение (копирование) файлов миниатюр товара для заказа
+            await storageService.saveOrderItemsImages(confirmedOrderId, confirmedOrderItems);
+
             // Получение документа с новым номером заказа (без session: счётчик откатывать нельзя!)
             const dbCounter = await Counter.findOneAndUpdate(
                 { entity: 'order' },
@@ -778,7 +747,7 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
 
             // Установка номера, списка, статусов и дат
             confirmedOrderDoc.orderNumber = newOrderNumber;
-            confirmedOrderDoc.items = confirmedOrderItemList;
+            confirmedOrderDoc.items = confirmedOrderItems;
             
             const now = new Date();
             confirmedOrderDoc.confirmedAt = now;
@@ -814,8 +783,8 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
         // Отправка ответа заказчику
         safeSendResponse(req, res, statusCode, responseData);
     } catch (err) {
-        // Очистка папки файлов заказа (безопасно)
-        await cleanupDir(orderFilesDir, req);
+        // Очистка файлов миниатюр товаров в заказе (безопасно)
+        await storageService.cleanupOrderFiles(confirmedOrderId, logCtx);
 
         // Обработка контролируемой ошибки
         if (err.isAppError) {

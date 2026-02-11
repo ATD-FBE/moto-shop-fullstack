@@ -143,8 +143,7 @@ export const handlePromoCreateRequest = async (req, res, next) => {
         // Сохранение картинки акции в хранилище файлов и добавление URL картинки в БД
         if (image) {
             newPromoId = newPromoDoc._id.toString(); // ID создался при валидации
-            await storageService.savePromoImage({ promoId: newPromoId, tempFile: image });
-
+            await storageService.savePromoImage(newPromoId, image);
             newPromoDoc.imageFilename = image.filename;
         }
 
@@ -155,13 +154,10 @@ export const handlePromoCreateRequest = async (req, res, next) => {
         // Отправка успешного ответа клиенту
         safeSendResponse(req, res, 201, { message: `Акция "${newPromoDoc.title}" успешно создана` });
     } catch (err) {
-        // Очистка файла картинки и папки файлов акции (безопасно)
+        // Очистка файла картинки акции в хранилище (безопасно)
         if (image) {
-            await storageService.deleteTempFiles({ tempFiles: [image], logCtx });
-
-            if (newPromoId) {
-                await storageService.cleanupPromoImage({ promoId: newPromoId, logCtx });
-            }
+            await storageService.deleteTempFiles([image], logCtx);
+            await storageService.cleanupPromoFiles(newPromoId, logCtx);
         }
 
         // Обработка контролируемой ошибки
@@ -191,8 +187,7 @@ export const handlePromoUpdateRequest = async (req, res, next) => {
     const { file: image, fileUploadError } = req; // Проверено в multer
     const { title, description, startDate, endDate, removeImage } = req.body ?? {};
 
-    const imageFilename = image ? image.filename : null;
-    let newImageApplied = false;
+    const imageFilename = image?.filename;
     let hasCurrentImage = false;
 
     // Апдейт документа в базе MongoDB
@@ -281,7 +276,7 @@ export const handlePromoUpdateRequest = async (req, res, next) => {
 
         // Сохранение нового файла картинки в хранилище файлов, если есть
         if (image) {
-            await storageService.savePromoImage({ promoId, tempFile: image });
+            await storageService.savePromoImage(promoId, image);
             newImageApplied = true;
         }
         
@@ -292,25 +287,23 @@ export const handlePromoUpdateRequest = async (req, res, next) => {
         // Удаление старого файла картинки или папки файлов акции (безопасно)
         if (shouldRemoveImage) {
             if (image) {
-                await storageService.deletePromoImage({ promoId, filename: currentImageFilename, logCtx });
+                await storageService.deletePromoImage(promoId, currentImageFilename, logCtx);
             } else {
-                await storageService.cleanupPromoImage({ promoId, logCtx });
+                await storageService.cleanupPromoFiles(promoId, logCtx);
             }
         }
 
         // Отправка успешного ответа клиенту
         safeSendResponse(req, res, 200, { message: `Акция "${currentTitle}" успешно изменена` });
     } catch (err) {
-        // Очистка нового файла картинки или всех созданных файлов акции (безопасно)
+        // Очистка нового файла картинки акции (безопасно)
         if (image) {
+            await storageService.deleteTempFiles([image], logCtx);
+
             if (hasCurrentImage) {
-                if (newImageApplied) {
-                    await storageService.deletePromoImage({ promoId, filename: imageFilename, logCtx });
-                } else {
-                    await storageService.deleteTempFiles({ tempFiles: [image], logCtx });
-                }
+                await storageService.deletePromoImage(promoId, imageFilename, logCtx);
             } else {
-                await storageService.cleanupPromoImage({ promoId, logCtx });
+                await storageService.cleanupPromoFiles(promoId, logCtx);
             }
         }
 
@@ -335,6 +328,7 @@ export const handlePromoUpdateRequest = async (req, res, next) => {
 
 /// Удаление акции ///
 export const handlePromoDeleteRequest = async (req, res, next) => {
+    const logCtx = req.logCtx;
     const promoId = req.params.promoId;
 
     if (!typeCheck.objectId(promoId)) {
@@ -349,8 +343,8 @@ export const handlePromoDeleteRequest = async (req, res, next) => {
             return safeSendResponse(req, res, 404, { message: `Акция (ID: ${promoId}) не найдена` });
         }
 
-        // Удаление папки файлов акций, если она была
-        await storageService.cleanupPromoImage({ promoId, logCtx: req.logCtx });
+        // Удаление файла картинки акции, если она была
+        await storageService.cleanupPromoFiles(promoId, logCtx);
 
         safeSendResponse(req, res, 200, { message: `Акция "${dbPromo.title}" успешно удалена` });
     } catch (err) {

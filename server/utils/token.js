@@ -4,12 +4,12 @@ import config from '../config/config.js';
 export const generateToken = (user, type) => {
     const tokenTypeData = {
         'access': {
-            key: config.accessSecretKey,
+            key: config.jwt.accessSecretKey,
             time: '1h'
             //time: '10s'
         },
         'refresh': {
-            key: config.refreshSecretKey,
+            key: config.jwt.refreshSecretKey,
             time: '7d'
             //time: '30s'
         }

@@ -82,9 +82,9 @@ const getFieldConfigs = (isAdminRegistration) => {
         }
     ];
     
-    const adminCodeFieldConfig = [
+    const adminRegCodeFieldConfig = [
         {
-            name: 'adminCode',
+            name: 'adminRegCode',
             label: 'Код администратора',
             elem: 'input',
             type: 'password',
@@ -94,7 +94,7 @@ const getFieldConfigs = (isAdminRegistration) => {
     ];
 
     const fieldConfigs = isAdminRegistration
-        ? baseFieldConfigs.concat(adminCodeFieldConfig)
+        ? baseFieldConfigs.concat(adminRegCodeFieldConfig)
         : baseFieldConfigs;
 
     const fieldConfigMap = fieldConfigs.reduce((acc, config) => {

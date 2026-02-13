@@ -277,7 +277,6 @@ export const handlePromoUpdateRequest = async (req, res, next) => {
         // Сохранение нового файла картинки в хранилище файлов, если есть
         if (image) {
             await storageService.savePromoImage(promoId, image);
-            newImageApplied = true;
         }
         
         // Добавление лога редактирования и сохранение в базе MongoDB

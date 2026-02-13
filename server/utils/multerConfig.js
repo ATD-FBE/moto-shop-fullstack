@@ -1,10 +1,18 @@
-import multer from 'multer';
-import { extname } from 'path';
 import { randomUUID } from 'crypto';
+import { extname } from 'path';
+import multer from 'multer';
 import { typeCheck } from './typeValidation.js';
 import { SERVER_CONSTANTS } from '../../shared/constants.js';
 
 const { MULTER_MODE } = SERVER_CONSTANTS;
+
+const generateStorageFilename = (originalname) => `${randomUUID()}${extname(originalname)}`;
+
+const setFilename = (file) => {
+    if (file && !file.filename) {
+        file.filename = generateStorageFilename(file.originalname);
+    }
+};
 
 const getMulterErrorMap = (context) => ({
     LIMIT_UNEXPECTED_FILE: { // Возникает при превышении лимита количества файлов ОДНОГО ПОЛЯ
@@ -123,7 +131,7 @@ const createMulterConfig = ({
                 cb(null, storagePath);
             },
             filename: (req, file, cb) => {
-                cb(null, `${randomUUID()}${extname(file.originalname)}`);
+                cb(null, generateStorageFilename(file.originalname));
             }
         });
 
@@ -189,6 +197,20 @@ const createMulterConfig = ({
                 }
         
                 return next();
+            }
+
+            // Установка имени файла для режима memory
+            if (storageMode === MULTER_MODE.MEMORY) {
+                // Обработка всех возможных вариантов (single, array, fields)
+                if (req.file) setFilename(req.file);
+
+                if (req.files) {
+                    if (Array.isArray(req.files)) {
+                        req.files.forEach(setFilename);
+                    } else { // type === 'fields' => req.files - объект { fieldname: [files] }
+                        Object.values(req.files).forEach(fileArray => fileArray.forEach(setFilename));
+                    }
+                }
             }
         
             next();

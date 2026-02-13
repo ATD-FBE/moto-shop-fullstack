@@ -133,7 +133,7 @@ const startServer = async () => {
 
         server.on('error', (err) => {
             if (err.code === 'EADDRINUSE') {
-                log.error(`Port ${SERVER_PORT} is already in use`);
+                log.error(`Порт ${SERVER_PORT} уже испльзуется`);
             } else {
                 log.error('Ошибка сервера:', err);
             }

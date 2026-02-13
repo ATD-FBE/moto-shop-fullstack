@@ -10,11 +10,9 @@ import {
     ORDER_STORAGE_PATH
 } from '../../../config/paths.js';
 import log from '../../../utils/logger.js';
-import { PRODUCT_THUMBNAIL_PRESETS } from '../../../../shared/constants.js';
+import { PRODUCT_THUMBNAIL_PRESETS, PRODUCT_THUMBNAIL_SIZES } from '../../../../shared/constants.js';
 
 sharp.cache(false); // Отменить кэширование оригинальных файлов картинок, чтобы они удалялись при ошибке
-
-const productThumbnailSizes = Object.values(PRODUCT_THUMBNAIL_PRESETS);
 
 export const fsStorageProvider = {
     initStorage: async () => {
@@ -24,6 +22,7 @@ export const fsStorageProvider = {
             ensureDir(PRODUCT_STORAGE_PATH),
             ensureDir(ORDER_STORAGE_PATH)
         ]);
+        log.info(`Используется локальное файловое хранилище, инициализация выполнена`);
     },
 
     deleteTempFiles: async (tempFiles = [], logCtx) => {
@@ -34,7 +33,7 @@ export const fsStorageProvider = {
     /// Promo ///
     savePromoImage: async (promoId, tempFile) => {
         if (!promoId || !tempFile) {
-            throw new Error('Критические данные отсутствуют или неверны в savePromoImage');
+            throw new Error('Критические данные отсутствуют или неверны в savePromoImage (fs)');
         }
 
         const promoDir = join(PROMO_STORAGE_PATH, promoId);
@@ -61,7 +60,7 @@ export const fsStorageProvider = {
     /// Product ///
     saveProductImages: async (productId, tempFiles = []) => {
         if (!productId || !tempFiles.length) {
-            throw new Error('Критические данные отсутствуют или неверны в saveProductImages');
+            throw new Error('Критические данные отсутствуют или неверны в saveProductImages (fs)');
         }
     
         // Создание папок для хранения фотографий товаров
@@ -71,7 +70,7 @@ export const fsStorageProvider = {
 
         await ensureDir(originalsDir); // productDir создастся рекурсивно
 
-        for (const size of productThumbnailSizes) {
+        for (const size of PRODUCT_THUMBNAIL_SIZES) {
             const thumbImgDir = join(thumbnailsDir, `${size}px`);
             await ensureDir(thumbImgDir); // thumbnailsDir создастся рекурсивно
         }
@@ -84,11 +83,14 @@ export const fsStorageProvider = {
             await moveFile(file.path, origImagePath);
     
             // Генерация превьюшек
-            for (const size of productThumbnailSizes) {
+            for (const size of PRODUCT_THUMBNAIL_SIZES) {
                 const thumbImagePath = join(thumbnailsDir, `${size}px`, filename);
 
                 await sharp(origImagePath)
-                    .resize(size, size, { fit: 'inside' }) // Сохранение пропорций со стороной size
+                    .resize(size, size, { // Привью в форме квадрата со стороной size
+                        fit: 'inside', // Картинка сохраняет пропорции и помещается по центру привью
+                        withoutEnlargement: true // Картинка не растягивается в привью, если меньше пресета
+                    })
                     .toFile(thumbImagePath);
             }
         }
@@ -104,7 +106,7 @@ export const fsStorageProvider = {
         const filePaths = filenames.flatMap(filename => {
             return [
                 join(originalsDir, filename),
-                ...productThumbnailSizes.map(size => join(thumbnailsDir, `${size}px`, filename))
+                ...PRODUCT_THUMBNAIL_SIZES.map(size => join(thumbnailsDir, `${size}px`, filename))
             ];
         });
         await cleanupFiles(filePaths, logCtx);
@@ -118,18 +120,19 @@ export const fsStorageProvider = {
     },
 
     /// Order ///
-    saveOrderItemsImages: async (orderId, items = []) => {
-        if (!orderId || !items.length) {
-            throw new Error('Критические данные отсутствуют или неверны в saveOrderItemsImages');
+    saveOrderItemsImages: async (orderId, orderItems = []) => {
+        if (!orderId || !orderItems.length) {
+            throw new Error('Критические данные отсутствуют или неверны в saveOrderItemsImages (fs)');
         }
-    
+
         const orderDir = join(ORDER_STORAGE_PATH, orderId);
         await ensureDir(orderDir);
-    
-        for (const item of items) {
-            if (!item.imageFilename) continue;
-    
-            const thumbImageSize = PRODUCT_THUMBNAIL_PRESETS.small;
+
+        const thumbImageSize = PRODUCT_THUMBNAIL_PRESETS.small;
+
+        const copyPromises = orderItems.map(item => {
+            if (!item.imageFilename) return null;
+
             const srcPath = join(
                 PRODUCT_STORAGE_PATH,
                 item.productId.toString(),
@@ -139,7 +142,13 @@ export const fsStorageProvider = {
             );
             const destPath = join(orderDir, item.imageFilename);
 
-            await copyFile(srcPath, destPath);
+            return copyFile(srcPath, destPath);
+        }).filter(Boolean);
+
+        if (copyPromises.length > 0) {
+            await Promise.all(copyPromises);
+        } else {
+            await cleanupDir(orderDir);
         }
     },
 
@@ -166,7 +175,7 @@ const moveFile = async (srcPath, destPath) => {
     try {
         await fsp.rename(srcPath, destPath);
     } catch (err) {
-        if (err.code === 'EXDEV') {
+        if (err.code === 'EXDEV') { // Ошибка может возникнуть при переносе на разных дисках или разделах
             await fsp.copyFile(srcPath, destPath);
             await fsp.unlink(srcPath);
         } else {

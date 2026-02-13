@@ -86,8 +86,6 @@ export const handleProductListRequest = async (req, res, next) => {
         const filteredProductIdList = aggregateResult[0]?.filteredProductIdList.map(c => c._id) || [];
         const dbPaginatedProductList = aggregateResult[0]?.paginatedProductList || [];
 
-        console.log(dbPaginatedProductList);
-
         const paginatedProductList = dbPaginatedProductList.map(product => prepareProductData(product, {
             managed: isAdmin,
             now: Date.now()

@@ -7,8 +7,8 @@ import log from '../../../utils/logger.js';
 import { TRANSACTION_TYPE, CARD_ONLINE_PROVIDER } from '../../../../shared/constants.js';
 
 const yooKassaCheckout = new YooCheckout({
-    shopId: config.yooKassaShopId,
-    secretKey: config.yooKassaSecretKey
+    shopId: config.yooKassa.shopId,
+    secretKey: config.yooKassa.secretKey
 });
 
 const YOOKASSA_WEBHOOK_IPS = [

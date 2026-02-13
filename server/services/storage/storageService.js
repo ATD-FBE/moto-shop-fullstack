@@ -1,6 +1,6 @@
 import config from '../../config/config.js';
 import { fsStorageProvider } from './providers/fs.provider.js';
-//import { s3StorageProvider } from './providers/s3.provider.js';
+import { s3StorageProvider } from './providers/s3.provider.js';
 import { SERVER_CONSTANTS } from '../../../shared/constants.js';
 
 const { STORAGE_TYPE } = SERVER_CONSTANTS;
@@ -12,7 +12,7 @@ switch (config.storage.type) {
         provider = fsStorageProvider;
         break;
     case STORAGE_TYPE.S3:
-        //provider = s3StorageProvider;
+        provider = s3StorageProvider;
         break;
     default:
         throw new Error(`Неизвестный тип файлового хранилища: ${config.storage.type}`);

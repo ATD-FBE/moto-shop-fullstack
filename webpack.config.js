@@ -87,7 +87,7 @@ export default {
             'process.env.HOST': JSON.stringify(config.host),
             'process.env.CLIENT_PORT': JSON.stringify(config.clientPort),
             'process.env.SERVER_PORT': JSON.stringify(config.serverPort),
-            'process.env.YOOKASSA_SHOP_ID': JSON.stringify(config.yooKassaShopId),
+            'process.env.YOOKASSA_SHOP_ID': JSON.stringify(config.yooKassa.shopId),
         })
     ]
 };

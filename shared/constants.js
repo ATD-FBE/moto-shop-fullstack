@@ -52,6 +52,8 @@ export const PRODUCT_THUMBNAIL_PRESETS = {
     medium: 220
 };
 
+export const PRODUCT_THUMBNAIL_SIZES = Object.values(PRODUCT_THUMBNAIL_PRESETS);
+
 export const FILE_FIELD_MAP = {
     promotion: ['image'],
     product: ['images']

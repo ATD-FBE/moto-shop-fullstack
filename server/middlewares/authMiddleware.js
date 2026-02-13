@@ -17,7 +17,7 @@ export const verifyAuth = async (req, res, next) => {
             return safeSendResponse(req, res, 401, { message: 'Токен доступа отсутствует' });
         }
         
-        req.user = jwt.verify(accessToken, config.accessSecretKey);
+        req.user = jwt.verify(accessToken, config.jwt.accessSecretKey);
         next();
     } catch (err) {
         if (err instanceof jwt.TokenExpiredError) {
@@ -71,7 +71,7 @@ export const optionalAuth = async (req, res, next) => {
         const accessToken = req.cookies.accessToken;
 
         if (accessToken) {
-            req.user = jwt.verify(accessToken, config.accessSecretKey);
+            req.user = jwt.verify(accessToken, config.jwt.accessSecretKey);
         }
         
         next();

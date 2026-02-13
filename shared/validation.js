@@ -15,7 +15,7 @@ import {
 const userNameValidation = /^[\wа-яА-ЯёЁ.-][\wа-яА-ЯёЁ\s.-]{1,28}[\wа-яА-ЯёЁ.-]$/;
 const emailValidation = /^[a-zA-Z0-9]([a-zA-Z0-9_.-]*[a-zA-Z0-9])?@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$/;
 const passwordValidation = /^(?=.*[a-zA-Z])(?=.*\d)[a-zA-Z0-9@#$%^&*!?-]{8,30}$/;
-const adminCodeValidation = /^[a-zA-Z0-9@#$%^&*!?-]{1,30}$/;
+const adminRegCodeValidation = /^[a-zA-Z0-9@#$%^&*!?-]{1,30}$/;
 const textValidation = /\S+/;
 const naturalValidation = /^\d+$/;
 const decimalValidation = /^\d+(\.\d+)?$/;
@@ -90,7 +90,7 @@ export const validationRules = {
         email: emailValidation,
         password: passwordValidation,
         confirmPassword: passwordValidation,
-        adminCode: adminCodeValidation,
+        adminRegCode: adminRegCodeValidation,
         newName: userNameValidation,
         newEmail: emailValidation,
         currentPassword: passwordValidation,
@@ -230,7 +230,7 @@ export const fieldErrorMessages = {
         confirmPassword: {
             default: 'Подтверждение пароля не совпадает или указано в неверном формате'
         },
-        adminCode: {
+        adminRegCode: {
             default: 'Код администратора указан в неверном формате'
         },
         newName: {

@@ -18,7 +18,7 @@ const { TOKEN_COOKIE_OPTIONS, ACCESS_TOKEN_MAX_AGE, REFRESH_TOKEN_MAX_AGE } = SE
 export const handleAuthRegistrationRequest = async (req, res, next) => {
     // Предварительная проверка формата данных
     const { formFields, guestCart } = req.body ?? {};
-    const { name, email, password, adminCode } = formFields ?? {};
+    const { name, email, password, adminRegCode } = formFields ?? {};
 
     const inputTypeMap = {
         formFields: { value: formFields, type: 'object' },
@@ -26,7 +26,7 @@ export const handleAuthRegistrationRequest = async (req, res, next) => {
         name: { value: name, type: 'string', form: true },
         email: { value: email, type: 'string', form: true },
         password: { value: password, type: 'string', form: true },
-        adminCode: { value: adminCode, type: 'string', optional: true, form: true }
+        adminRegCode: { value: adminRegCode, type: 'string', optional: true, form: true }
     };
 
     const { invalidInputKeys, fieldErrors } = validateInputTypes(inputTypeMap, 'auth');
@@ -46,7 +46,7 @@ export const handleAuthRegistrationRequest = async (req, res, next) => {
     }
 
     // Создание документа в базе MongoDB
-    const isAdmin = adminCode && adminCode === config.adminCode;
+    const isAdmin = adminRegCode && adminRegCode === config.adminRegCode;
     const role = isAdmin ? 'admin' : 'customer';
 
     try {
@@ -410,7 +410,7 @@ export const handleAuthRefreshRequest = async (req, res, next) => {
 
         const accessTokenExp = Date.now() + ACCESS_TOKEN_MAX_AGE;
 
-        const user = jwt.verify(refreshToken, config.refreshSecretKey);
+        const user = jwt.verify(refreshToken, config.jwt.refreshSecretKey);
         const accessToken = generateToken(user, 'access');
         res.cookie('accessToken', accessToken, { ...TOKEN_COOKIE_OPTIONS, maxAge: ACCESS_TOKEN_MAX_AGE });
         

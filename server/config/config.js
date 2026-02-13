@@ -19,7 +19,7 @@ const resolveMongoUri = () => {
         return process.env.MONGO_URI_ATLAS;
     }
 
-    throw new Error(`Invalid MONGO_MODE: ${mode}`);
+    throw new Error(`Некорректный режим MongoDB: ${mode}`);
 };
 
 const resolveStorageConfig = () => {
@@ -35,13 +35,19 @@ const resolveStorageConfig = () => {
     if (type === STORAGE_TYPE.S3) {
         const {
             STORAGE_S3_BUCKET,
-            STORAGE_S3_REGION,
+            STORAGE_S3_BUCKET_TYPE,
             STORAGE_S3_ACCESS_KEY,
             STORAGE_S3_SECRET_KEY,
+            STORAGE_S3_REGION,
             STORAGE_S3_ENDPOINT
         } = process.env;
     
-        if (!STORAGE_S3_BUCKET || !STORAGE_S3_ACCESS_KEY || !STORAGE_S3_SECRET_KEY) {
+        if (
+            !STORAGE_S3_BUCKET ||
+            !STORAGE_S3_BUCKET_TYPE ||
+            !STORAGE_S3_ACCESS_KEY ||
+            !STORAGE_S3_SECRET_KEY
+        ) {
             throw new Error('S3 storage выбран, но переменные окружения заданы не полностью');
         }
     
@@ -49,9 +55,10 @@ const resolveStorageConfig = () => {
             type: STORAGE_TYPE.S3,
             multerMode: MULTER_MODE.MEMORY,
             bucket: STORAGE_S3_BUCKET,
-            region: STORAGE_S3_REGION,
+            bucketType: STORAGE_S3_BUCKET_TYPE,
             accessKey: STORAGE_S3_ACCESS_KEY,
             secretKey: STORAGE_S3_SECRET_KEY,
+            region: STORAGE_S3_REGION,
             endpoint: STORAGE_S3_ENDPOINT
         };
     }
@@ -65,12 +72,15 @@ export default {
     host: process.env.HOST || 'localhost',
     clientPort: process.env.CLIENT_PORT || 3000,
     serverPort: process.env.SERVER_PORT || 5000,
+    jwt: {
+        accessSecretKey: process.env.JWT_ACCESS_SECRET_KEY,
+        refreshSecretKey: process.env.JWT_REFRESH_SECRET_KEY,
+    },
+    adminRegCode: process.env.ADMIN_REG_CODE,
     databaseUrl: resolveMongoUri(),
     storage: resolveStorageConfig(),
-    accessSecretKey: process.env.JWT_ACCESS_SECRET_KEY,
-    refreshSecretKey: process.env.JWT_REFRESH_SECRET_KEY,
-    adminCode: process.env.ADMIN_CODE,
-    yooKassaShopId: process.env.YOOKASSA_SHOP_ID,
-    yooKassaSecretKey: process.env.YOOKASSA_SECRET_KEY,
-    yooKassaTest: process.env.YOOKASSA_TEST
+    yooKassa: {
+        shopId: process.env.YOOKASSA_SHOP_ID,
+        secretKey: process.env.YOOKASSA_SECRET_KEY
+    }
 };

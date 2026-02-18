@@ -18,7 +18,7 @@ export const detectWebhookProvider = (req) => {
         return CARD_ONLINE_PROVIDER.YOOKASSA;
     }
 
-    log.warn(`${req.logCtx} - Провайдер вебхука не определён:`, { headers: req.headers, body: req.body });
+    log.warn(`${req.reqCtx} - Провайдер вебхука не определён:`, { headers: req.headers, body: req.body });
     return null;
 };
 

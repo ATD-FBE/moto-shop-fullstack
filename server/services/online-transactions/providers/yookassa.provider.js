@@ -40,7 +40,7 @@ const checkYooKassaIp = (req) => {
 
 export const verifyYooKassaWebhookAuthenticity = (req) => {
     const isIpValid = checkYooKassaIp(req);
-    if (!isIpValid) log.warn(`${req.logCtx} - YooKassa webhook: IP вне белого списка`);
+    if (!isIpValid) log.warn(`${req.reqCtx} - YooKassa webhook: IP вне белого списка`);
     return isIpValid; 
 };
 

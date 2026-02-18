@@ -36,7 +36,7 @@ export const PROMO_ANNOUNCE_OFFSET_DAYS = 3;
 export const ALLOWED_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 export const MAX_PROMO_IMAGE_SIZE_MB = 0.5;
 export const MAX_PRODUCT_IMAGE_SIZE_MB = 1;
-export const PRODUCT_FILES_LIMIT = 20;
+export const PRODUCT_FILES_LIMIT = 200;
 export const PRODUCT_UNITS = ['ед.', 'шт.', 'пар.', 'компл.', 'наб.', 'уп.', 'пач.', 'м', 'л'];
 export const PRODUCT_BRAND_NEW_THRESHOLD_MS = 14 * 24 * 60 * 60 * 1000;
 export const PRODUCT_RESTOCK_THRESHOLD_MS = 14 * 24 * 60 * 60 * 1000;
@@ -793,6 +793,9 @@ export const SERVER_CONSTANTS = isServer
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax', // В запросах нужно указывать credentials: 'include'
             path: '/'
+        },
+        ERROR_SIGNALS: {
+            TIMEOUT_ABORT: 'timeout_abort'
         },
         ACCESS_TOKEN_MAX_AGE: 1 * 60 * 60 * 1000, // 1 час
         //ACCESS_TOKEN_MAX_AGE: 10 * 1000,

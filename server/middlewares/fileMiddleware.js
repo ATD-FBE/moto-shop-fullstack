@@ -3,7 +3,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import config from '../config/config.js';
 import s3Client from '../config/s3Client.js';
-import { BUILD_ROOT, STORAGE_ROOT, STORAGE_URL_PATH } from '../config/paths.js';
+import { BUILD_ROOT, STORAGE_ROOT } from '../config/paths.js';
 import { SERVER_CONSTANTS } from '../../shared/constants.js';
 
 const { STORAGE_TYPE } = SERVER_CONSTANTS;

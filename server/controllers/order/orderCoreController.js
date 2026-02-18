@@ -536,7 +536,7 @@ export const handleOrderDetailsUpdateRequest = async (req, res, next) => {
 
 /// Изменение товаров подтверждённого заказа (SSE у клиента) ///
 export const handleOrderItemsUpdateRequest = async (req, res, next) => {
-    const logCtx = req.logCtx;
+    const reqCtx = req.reqCtx;
     const dbUser = req.dbUser;
 
     // Предварительная проверка формата данных
@@ -786,7 +786,7 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
 
         // Удаление миниатюр фотографий товаров в заказе при удалении товаров (безопасно)
         if (imageFilenamesToDelete.length > 0) {
-            await storageService.deleteOrderItemsImages(orderId, imageFilenamesToDelete, logCtx);
+            await storageService.deleteOrderItemsImages(orderId, imageFilenamesToDelete, reqCtx);
         }
 
         // Отправка SSE-сообщения админам
@@ -1040,7 +1040,7 @@ export const handleOrderStatusUpdateRequest = async (req, res, next) => {
 
             // Обновление общей суммы оплат покупателя при завершении заказа
             if (updatedDbOrder.currentStatus === ORDER_STATUS.COMPLETED) {
-                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaid, session, req.logCtx);
+                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaid, session, req.reqCtx);
             }
 
             // Возвращение заказанного количества товаров на склад при отмене заказа

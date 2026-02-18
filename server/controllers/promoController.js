@@ -1,4 +1,5 @@
 import Promo from '../database/models/Promo.js';
+import { checkTimeout } from '../middlewares/timeoutMiddleware.js';
 import { preparePromoData } from '../services/promoService.js';
 import { storageService } from '../services/storage/storageService.js';
 import { typeCheck, validateInputTypes } from '../utils/typeValidation.js';
@@ -82,7 +83,7 @@ export const handlePromoRequest = async (req, res, next) => {
 
 /// Создание акции ///
 export const handlePromoCreateRequest = async (req, res, next) => {
-    const logCtx = req.logCtx;
+    const reqCtx = req.reqCtx;
     const userId = req.dbUser._id;
     const { file: image, fileUploadError } = req; // Проверено в multer
     const { title, description, startDate, endDate } = req.body ?? {};
@@ -156,8 +157,8 @@ export const handlePromoCreateRequest = async (req, res, next) => {
     } catch (err) {
         // Очистка файла картинки акции в хранилище (безопасно)
         if (image) {
-            await storageService.deleteTempFiles([image], logCtx);
-            await storageService.cleanupPromoFiles(newPromoId, logCtx);
+            await storageService.deleteTempFiles(image, reqCtx);
+            await storageService.cleanupPromoFiles(newPromoId, reqCtx);
         }
 
         // Обработка контролируемой ошибки
@@ -181,7 +182,7 @@ export const handlePromoCreateRequest = async (req, res, next) => {
 
 /// Изменение акции ///
 export const handlePromoUpdateRequest = async (req, res, next) => {
-    const logCtx = req.logCtx;
+    const reqCtx = req.reqCtx;
     const userId = req.dbUser._id;
     const promoId = req.params.promoId;
     const { file: image, fileUploadError } = req; // Проверено в multer
@@ -286,9 +287,9 @@ export const handlePromoUpdateRequest = async (req, res, next) => {
         // Удаление старого файла картинки или папки файлов акции (безопасно)
         if (shouldRemoveImage) {
             if (image) {
-                await storageService.deletePromoImage(promoId, currentImageFilename, logCtx);
+                await storageService.deletePromoImage(promoId, currentImageFilename, reqCtx);
             } else {
-                await storageService.cleanupPromoFiles(promoId, logCtx);
+                await storageService.cleanupPromoFiles(promoId, reqCtx);
             }
         }
 
@@ -297,12 +298,12 @@ export const handlePromoUpdateRequest = async (req, res, next) => {
     } catch (err) {
         // Очистка нового файла картинки акции (безопасно)
         if (image) {
-            await storageService.deleteTempFiles([image], logCtx);
+            await storageService.deleteTempFiles(image, reqCtx);
 
             if (hasCurrentImage) {
-                await storageService.deletePromoImage(promoId, imageFilename, logCtx);
+                await storageService.deletePromoImage(promoId, imageFilename, reqCtx);
             } else {
-                await storageService.cleanupPromoFiles(promoId, logCtx);
+                await storageService.cleanupPromoFiles(promoId, reqCtx);
             }
         }
 
@@ -327,7 +328,7 @@ export const handlePromoUpdateRequest = async (req, res, next) => {
 
 /// Удаление акции ///
 export const handlePromoDeleteRequest = async (req, res, next) => {
-    const logCtx = req.logCtx;
+    const reqCtx = req.reqCtx;
     const promoId = req.params.promoId;
 
     if (!typeCheck.objectId(promoId)) {
@@ -343,7 +344,7 @@ export const handlePromoDeleteRequest = async (req, res, next) => {
         }
 
         // Удаление файла картинки акции, если она была
-        await storageService.cleanupPromoFiles(promoId, logCtx);
+        await storageService.cleanupPromoFiles(promoId, reqCtx);
 
         safeSendResponse(req, res, 200, { message: `Акция "${dbPromo.title}" успешно удалена` });
     } catch (err) {

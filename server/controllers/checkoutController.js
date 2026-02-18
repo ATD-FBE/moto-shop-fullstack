@@ -1,5 +1,6 @@
 import Order from '../database/models/Order.js';
 import Counter from '../database/models/Counter.js';
+import { checkTimeout } from '../middlewares/timeoutMiddleware.js';
 import { storageService } from '../services/storage/storageService.js';
 import * as sseOrderManagement from '../services/sse/sseOrderManagementService.js';
 import {
@@ -489,7 +490,7 @@ export const handleOrderDraftUpdateRequest = async (req, res, next) => {
 
 /// Подтверждение оформления заказа ///
 export const handleOrderDraftConfirmRequest = async (req, res, next) => {
-    const logCtx = req.logCtx;
+    const reqCtx = req.reqCtx;
     const dbUser = req.dbUser;
     const customerId = dbUser._id;
     const customerDiscount = dbUser.discount;
@@ -735,7 +736,7 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
             }
 
             // Сохранение (копирование) файлов миниатюр товара для заказа
-            await storageService.saveOrderItemsImages(confirmedOrderId, confirmedOrderItems);
+            await storageService.saveOrderItemsImages(confirmedOrderId, confirmedOrderItems, req);
 
             // Получение документа с новым номером заказа (без session: счётчик откатывать нельзя!)
             const dbCounter = await Counter.findOneAndUpdate(
@@ -784,7 +785,7 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
         safeSendResponse(req, res, statusCode, responseData);
     } catch (err) {
         // Очистка файлов миниатюр товаров в заказе (безопасно)
-        await storageService.cleanupOrderFiles(confirmedOrderId, logCtx);
+        await storageService.cleanupOrderFiles(confirmedOrderId, reqCtx);
 
         // Обработка контролируемой ошибки
         if (err.isAppError) {

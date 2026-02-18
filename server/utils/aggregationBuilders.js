@@ -147,7 +147,7 @@ export const buildFilterMatch = (query, filterOptions) => {
             }
 
             default:
-                console.warn(`Неизвестный тип поля для фильтрации: ${type}`);
+                log.warn(`Неизвестный тип поля для фильтрации: ${type}`);
         }
     });
 

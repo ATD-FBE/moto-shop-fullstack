@@ -269,7 +269,7 @@ export const handleOrderFinancialsEventVoidRequest = async (req, res, next) => {
             // Обновление общей суммы оплат покупателя при завершении заказа
             if (updatedDbOrder.currentStatus === ORDER_STATUS.COMPLETED) {
                 const netPaidDelta = newNetPaid - oldNetPaid;
-                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaidDelta, session, req.logCtx);
+                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaidDelta, session, req.reqCtx);
             }
 
             // Формирование данных для SSE-сообщения
@@ -442,7 +442,7 @@ export const handleOrderOfflinePaymentApplyRequest = async (req, res, next) => {
             // Обновление общей суммы оплат покупателя, если заказ уже завершён
             if (!markAsFailed && currentOrderStatus === ORDER_STATUS.COMPLETED) {
                 const netPaidDelta = newNetPaid - netPaid;
-                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaidDelta, session, req.logCtx);
+                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaidDelta, session, req.reqCtx);
             }
 
             // Формирование данных для SSE-сообщения
@@ -612,7 +612,7 @@ export const handleOrderOfflineRefundApplyRequest = async (req, res, next) => {
             // Обновление общей суммы оплат покупателя, если заказ уже завершён
             if (!markAsFailed && currentOrderStatus === ORDER_STATUS.COMPLETED) {
                 const netPaidDelta = newNetPaid - netPaid;
-                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaidDelta, session, req.logCtx);
+                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaidDelta, session, req.reqCtx);
             }
 
             // Формирование данных для SSE-сообщения
@@ -1124,7 +1124,7 @@ export const handleWebhook = async (req, res, next) => {
         orderId, transactionId, amount, transactionType,
         originalPaymentId, markAsFailed, failureReason, createdAt
     } = normalizedWebhook;
-    const logContext = `${req.logCtx} [WEBHOOK ${provider.toUpperCase()}]`;
+    const logContext = `${req.reqCtx} [WEBHOOK ${provider.toUpperCase()}]`;
 
     if (
         !typeCheck.objectId(orderId) ||
@@ -1231,7 +1231,7 @@ export const handleWebhook = async (req, res, next) => {
             if (!markAsFailed && currentOrderStatus === ORDER_STATUS.COMPLETED) {
                 const netPaid = financials.totalPaid - financials.totalRefunded;
                 const netPaidDelta = newNetPaid - netPaid;
-                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaidDelta, session, req.logCtx);
+                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaidDelta, session, req.reqCtx);
             }
 
             // Формирование данных для SSE-сообщения

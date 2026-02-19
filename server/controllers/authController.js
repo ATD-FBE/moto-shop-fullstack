@@ -1,9 +1,12 @@
 import jwt from 'jsonwebtoken';
 import User from '../database/models/User.js';
 import config from '../config/config.js';
+import { checkTimeout } from '../middlewares/timeoutMiddleware.js';
 import { getUserData, getSessionData } from '../services/authService.js';
 import { generateToken } from '../utils/token.js';
 import { typeCheck, validateInputTypes } from '../utils/typeValidation.js';
+import { runInTransaction } from '../utils/transaction.js';
+import { createAppError, prepareAppErrorData } from '../utils/errorUtils.js';
 import { parseValidationErrors } from '../utils/errorUtils.js';
 import { getTokenExpiryFromCookie } from '../utils/token.js';
 import { normalizeInputDataToNull } from '../utils/normalizeUtils.js';
@@ -50,19 +53,26 @@ export const handleAuthRegistrationRequest = async (req, res, next) => {
     const role = isAdmin ? 'admin' : 'customer';
 
     try {
-        const newDbUser = new User({
-            name: name.trim(),
-            email: email.trim(),
-            password,
-            role,
-            ...(role === 'customer' && {
-                notifications: [],
-                discount: 0
-            })
-        });
+        const { newDbUser, sessionData } = await runInTransaction(async (session) => {
+            const newDbUser = new User({
+                name: name.trim(),
+                email: email.trim(),
+                password,
+                role,
+                ...(role === 'customer' && {
+                    notifications: [],
+                    discount: 0
+                })
+            });
 
-        const sessionData = await getSessionData(newDbUser, guestCart);
-        await newDbUser.save();
+            const sessionData = await getSessionData(newDbUser, guestCart);
+            checkTimeout(req);
+    
+            await newDbUser.save({ session });
+            checkTimeout(req);
+
+            return { newDbUser, sessionData };
+        });
 
         // Генерация токенов доступа и обновления
         const now = Date.now();
@@ -150,28 +160,36 @@ export const handleAuthLoginRequest = async (req, res, next) => {
 
     // Проверка данных пользователя в базе MongoDB
     try {
-        // Поиск пользователя
-        const dbUser = await User.findOne({ name: prepDbFields.name });
+        const { dbUser, sessionData } = await runInTransaction(async (session) => {
+            // Поиск пользователя
+            const dbUser = await User.findOne({ name: prepDbFields.name }).session(session);
+            checkTimeout(req);
 
-        if (!dbUser) {
-            fieldErrors.name = fieldErrorMessages.auth.name.login;
-            return safeSendResponse(req, res, 401, { message: INVALID_AUTH_MSG, fieldErrors });
-        }
-        
-        // Проверка пароля
-        const isPasswordCorrect = await dbUser.comparePassword(password);
-    
-        if (!isPasswordCorrect) {
-            fieldErrors.password = fieldErrorMessages.auth.password.login;
-            return safeSendResponse(req, res, 401, { message: INVALID_AUTH_MSG, fieldErrors });
-        }
+            if (!dbUser) {
+                fieldErrors.name = fieldErrorMessages.auth.name.login;
+                throw createAppError(401, INVALID_AUTH_MSG, { fieldErrors });
+            }
 
-        // Получение данных сессии
-        const sessionData = await getSessionData(dbUser, guestCart);
+            // Проверка пароля
+            const isPasswordCorrect = await dbUser.comparePassword(password);
+            checkTimeout(req);
 
-        if (sessionData.cartWasMerged) {
-            await dbUser.save();
-        }
+            if (!isPasswordCorrect) {
+                fieldErrors.password = fieldErrorMessages.auth.password.login;
+                throw createAppError(401, INVALID_AUTH_MSG, { fieldErrors });
+            }
+
+            // Получение данных сессии
+            const sessionData = await getSessionData(dbUser, guestCart);
+            checkTimeout(req);
+
+            if (sessionData.cartWasMerged) {
+                await dbUser.save({ session });
+                checkTimeout(req);
+            }
+
+            return { dbUser, sessionData };
+        });
 
         // Генерация токенов доступа
         const now = Date.now();
@@ -198,6 +216,10 @@ export const handleAuthLoginRequest = async (req, res, next) => {
             ...sessionData
         });
     } catch (err) {
+        if (err.isAppError) {
+            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+        }
+
         next(err);
     }
 };
@@ -228,8 +250,11 @@ export const handleAuthUserUpdateRequest = async (req, res, next) => {
         return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
     
-    // Апдейт документа в базе MongoDB
     const dbUser = req.dbUser;
+    const dbUserBackup = {
+        name: dbUser.name,
+        email: dbUser.email
+    };
     const prepDbFields = {
         newName: newName?.trim(),
         newEmail: newEmail?.trim(),
@@ -238,96 +263,104 @@ export const handleAuthUserUpdateRequest = async (req, res, next) => {
     };
     const updatedFormFields = [];
 
+    // Апдейт документа в базе MongoDB
     try {
-        const dbUserBackup = { name: dbUser.name, email: dbUser.email };
-        
-        // Валидация пароля
-        if (newPassword !== undefined) {
-            if (validationRules.auth.newPassword.test(newPassword)) {
-                if (
-                    currentPassword === undefined ||
-                    !validationRules.auth.currentPassword.test(currentPassword)
-                ) {
-                    fieldErrors.currentPassword =
-                        fieldErrorMessages.auth.currentPassword?.default ||
-                        fieldErrorMessages.DEFAULT;
-                } else {
-                    const isPasswordCorrect = await dbUser.comparePassword(currentPassword);
-    
-                    if (!isPasswordCorrect) {
+        const { userData } = await runInTransaction(async (session) => {
+            // Валидация пароля
+            if (newPassword !== undefined) {
+                if (validationRules.auth.newPassword.test(newPassword)) {
+                    if (
+                        currentPassword === undefined ||
+                        !validationRules.auth.currentPassword.test(currentPassword)
+                    ) {
                         fieldErrors.currentPassword =
                             fieldErrorMessages.auth.currentPassword?.default ||
                             fieldErrorMessages.DEFAULT;
-                    } else if (newPassword === currentPassword) {
-                        fieldErrors.newPassword =
-                            fieldErrorMessages.auth.newPassword?.duplicate ||
-                            fieldErrorMessages.DEFAULT;
                     } else {
-                        dbUser.password = newPassword;
-                        updatedFormFields.push('newPassword');
+                        const isPasswordCorrect = await dbUser.comparePassword(currentPassword);
+                        checkTimeout(req);
+        
+                        if (!isPasswordCorrect) {
+                            fieldErrors.currentPassword =
+                                fieldErrorMessages.auth.currentPassword?.default ||
+                                fieldErrorMessages.DEFAULT;
+                        } else if (newPassword === currentPassword) {
+                            fieldErrors.newPassword =
+                                fieldErrorMessages.auth.newPassword?.duplicate ||
+                                fieldErrorMessages.DEFAULT;
+                        } else {
+                            dbUser.password = newPassword;
+                            updatedFormFields.push('newPassword');
+                        }
                     }
-                }
-            } else {
-                fieldErrors.newPassword =
-                    fieldErrorMessages.auth.newPassword?.default ||
-                    fieldErrorMessages.DEFAULT;
-            }
-        }
-
-        // Предварительное обновление остальных полей
-        const dbFieldToFormFieldMap = {
-            name: 'newName',
-            email: 'newEmail'
-        };
-
-        for (const [dbField, formField] of Object.entries(dbFieldToFormFieldMap)) {
-            const value = prepDbFields[formField];
-            if (value === undefined) continue;
-
-            if (dbUser[dbField] === value) {
-                fieldErrors[formField] =
-                    fieldErrorMessages.auth[formField]?.duplicate ||
-                    fieldErrorMessages.DEFAULT;
-                continue;
-            }
-
-            dbUser[dbField] = value;
-            updatedFormFields.push(formField);
-        }
-
-        // Сохранение пользователя
-        try {
-            await dbUser.save(); // Первая попытка сохранения
-        } catch (err) {
-            // Обработка ошибок валидации полей при сохранении в MongoDB
-            if (err.name === 'ValidationError') {
-                for (const dbField in err.errors) {
-                    const formField = dbFieldToFormFieldMap[dbField];
-                    
-                    if (!formField) {
-                        return safeSendResponse(req, res, 400, {
-                            message: `Некорректное значение поля: ${dbField}`
-                        });
-                    }
-                    
-                    const errorMessageType = err.errors[dbField].kind === 'unique' ? 'unique' : 'default';
-                    fieldErrors[formField] =
-                        fieldErrorMessages.auth[formField]?.[errorMessageType] ||
+                } else {
+                    fieldErrors.newPassword =
+                        fieldErrorMessages.auth.newPassword?.default ||
                         fieldErrorMessages.DEFAULT;
-    
-                    if (dbUserBackup.hasOwnProperty(dbField)) {
-                        dbUser[dbField] = dbUserBackup[dbField]; // Восстановление старого значения
-                        updatedFormFields.splice(updatedFormFields.indexOf(formField), 1);
-                    }
+                }
+            }
+
+            // Предварительное обновление остальных полей
+            const dbFieldToFormFieldMap = {
+                name: 'newName',
+                email: 'newEmail'
+            };
+
+            for (const [dbField, formField] of Object.entries(dbFieldToFormFieldMap)) {
+                const value = prepDbFields[formField];
+                if (value === undefined) continue;
+
+                if (dbUser[dbField] === value) {
+                    fieldErrors[formField] =
+                        fieldErrorMessages.auth[formField]?.duplicate ||
+                        fieldErrorMessages.DEFAULT;
+                    continue;
                 }
 
-                if (updatedFormFields.length > 0) {
-                    await dbUser.save(); // Вторая попытка сохранения, исключая поля с ошибками
-                }
-            } else {
-                throw err;
+                dbUser[dbField] = value;
+                updatedFormFields.push(formField);
             }
-        }
+
+            // Сохранение пользователя
+            try {
+                await dbUser.save({ session }); // Первая попытка сохранения
+                checkTimeout(req);
+            } catch (err) {
+                // Обработка ошибок валидации полей при сохранении в MongoDB
+                if (err.name === 'ValidationError') {
+                    for (const dbField in err.errors) {
+                        const formField = dbFieldToFormFieldMap[dbField];
+                        
+                        if (!formField) {
+                            throw createAppError(400, `Некорректное значение поля: ${dbField}`);
+                        }
+                        
+                        const errorMessageType = err.errors[dbField].kind === 'unique' ? 'unique' : 'default';
+                        fieldErrors[formField] =
+                            fieldErrorMessages.auth[formField]?.[errorMessageType] ||
+                            fieldErrorMessages.DEFAULT;
+        
+                        if (dbUserBackup.hasOwnProperty(dbField)) {
+                            dbUser[dbField] = dbUserBackup[dbField]; // Восстановление старого значения
+                            updatedFormFields.splice(updatedFormFields.indexOf(formField), 1);
+                        }
+                    }
+
+                    if (updatedFormFields.length > 0) {
+                        await dbUser.save({ session }); // Вторая попытка сохранения, исключая поля с ошибками
+                        checkTimeout(req);
+                    }
+                } else {
+                    throw err;
+                }
+            }
+
+            const userData = await getUserData(dbUser);
+            checkTimeout(req);
+
+            return { userData };
+        });
+        
 
         // Отправка ответа клиенту
         const { statusCode, message } = (() => {
@@ -353,10 +386,14 @@ export const handleAuthUserUpdateRequest = async (req, res, next) => {
             }),
             ...([200, 207].includes(statusCode) && {
                 updatedFormFields,
-                updatedUser: await getUserData(dbUser)
+                updatedUser: userData
             })
         });
     } catch (err) {
+        if (err.isAppError) {
+            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+        }
+
         next(err);
     }
 };
@@ -377,8 +414,17 @@ export const handleAuthSessionRequest = async (req, res, next) => {
     }
 
     try {
-        const sessionData = await getSessionData(dbUser, guestCart);
-        if (sessionData.cartWasMerged) await dbUser.save();
+        const { sessionData } = await runInTransaction(async (session) => {
+            const sessionData = await getSessionData(dbUser, guestCart);
+            checkTimeout(req);
+
+            if (sessionData.cartWasMerged) {
+                await dbUser.save({ session });
+                checkTimeout(req);
+            }
+
+            return { sessionData };
+        });
 
         const accessTokenExp = getTokenExpiryFromCookie(req, 'access');
         const refreshTokenExp = getTokenExpiryFromCookie(req, 'refresh');
@@ -485,30 +531,33 @@ export const handleAuthCheckoutPrefsUpdateRequest = async (req, res, next) => {
     if ((isCourierMethod && !isAllowCourierExtra) || (!isCourierMethod && isAllowCourierExtra)) {
         return safeSendResponse(req, res, 400, { message: 'Несогласованные данные для метода доставки' });
     }
+
+    // Создание и форматирование настроек заказа
+    const oldCheckoutPrefs = dbUser.checkoutPrefs.toObject();
+    const newCheckoutPrefs = normalizeInputDataToNull({
+        customerInfo: { firstName, lastName, middleName, email, phone },
+        delivery: {
+            deliveryMethod,
+            allowCourierExtra,
+            shippingAddress: deliveryMethod === DELIVERY_METHOD.SELF_PICKUP
+                ? {}
+                : { region, district, city, street, house, apartment, postalCode }
+        },
+        financials: { defaultPaymentMethod }
+    });
+
+    // Проверка на изменение полей
+    if (!isDbDataModified(oldCheckoutPrefs, newCheckoutPrefs)) {
+        return safeSendResponse(req, res, 204);
+    }
     
     try {
-        // Создание и форматирование настроек заказа
-        const oldCheckoutPrefs = dbUser.checkoutPrefs.toObject();
-        const newCheckoutPrefs = normalizeInputDataToNull({
-            customerInfo: { firstName, lastName, middleName, email, phone },
-            delivery: {
-                deliveryMethod,
-                allowCourierExtra,
-                shippingAddress: deliveryMethod === DELIVERY_METHOD.SELF_PICKUP
-                    ? {}
-                    : { region, district, city, street, house, apartment, postalCode }
-            },
-            financials: { defaultPaymentMethod }
-        });
-
-        // Проверка на изменение полей
-        if (!isDbDataModified(oldCheckoutPrefs, newCheckoutPrefs)) {
-            return safeSendResponse(req, res, 204);
-        }
-
         // Установка и сохранение настроек в базе MongoDB с удалением null-полей и пустых объектов
-        dbUser.checkoutPrefs = newCheckoutPrefs;
-        await dbUser.save();
+        await runInTransaction(async (session) => {
+            dbUser.checkoutPrefs = newCheckoutPrefs;
+            await dbUser.save({ session });
+            checkTimeout(req);
+        });
 
         safeSendResponse(req, res, 200, { message: 'Настройки заказа обновлены' });
     } catch (err) {

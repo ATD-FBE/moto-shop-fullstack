@@ -5373,15 +5373,15 @@ main {
                 .table-footer {
                     grid-template-columns:
                         1fr              // select-label
-                        $cell-btn-width  // bulk-edit
-                        $cell-btn-width; // bulk-delete
+                        $cell-btn-width  // edit-bulk-product
+                        $cell-btn-width; // delete-bulk-product
 
                     button {
                         @include admin-button();
                         width: $btn-width;
                         font-weight: bolder;
         
-                        &.bulk-delete-products-btn:not([disabled]) > .icon {
+                        &.delete-bulk-product-btn:not([disabled]) > .icon {
                             color: $color-red;
                         }
                     }

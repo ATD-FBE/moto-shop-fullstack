@@ -1,7 +1,7 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
-const ORDER_TIMEOUT = 32000;
+const ORDER_TIMEOUT = 35000;
 
 /// Загрузка списка заказов для одной страницы ///
 export const sendOrderListRequest = (urlParams) => async (dispatch) => {

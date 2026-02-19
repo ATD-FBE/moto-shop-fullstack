@@ -1,8 +1,5 @@
 import log from '../utils/logger.js';
 import safeSendResponse from '../utils/safeSendResponse.js';
-import { SERVER_CONSTANTS } from '../../shared/constants.js';
-
-const { ERROR_SIGNALS } = SERVER_CONSTANTS;
 
 export function errorTracker(req, res, next) {
     req.connectionAborted = false;

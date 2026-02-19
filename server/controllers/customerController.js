@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import User from '../database/models/User.js';
 import Order from '../database/models/Order.js';
+import { checkTimeout } from '../middlewares/timeoutMiddleware.js';
 import { prepareOrderData } from '../services/orderService.js';
 import {
     buildSearchMatch,
@@ -9,6 +10,7 @@ import {
     buildOrderedFiltersPipeline
 } from '../utils/aggregationBuilders.js';
 import { validateInputTypes } from '../utils/typeValidation.js';
+import { runInTransaction } from '../utils/transaction.js';
 import safeSendResponse from '../utils/safeSendResponse.js';
 import { customersFilterOptions } from '../../shared/filterOptions.js';
 import { customersSortOptions } from '../../shared/sortOptions.js';
@@ -71,6 +73,7 @@ export const handleCustomerListRequest = async (req, res, next) => {
 
         // Агрегатный запрос
         const aggregateResult = await User.aggregate(pipeline);
+        checkTimeout(req);
         
         const filteredCustomerNamesMap = Object.fromEntries(
             aggregateResult[0]?.filteredCustomerIdList.map(c => [c._id, c.name]) || []
@@ -120,6 +123,7 @@ export const handleCustomerOrderListRequest = async (req, res, next) => {
                 .select('_id')
                 .sort({ confirmedAt: -1 })
                 .lean();
+            checkTimeout(req);
         
             if (!firstOrder || firstOrder._id.toString() !== firstOrderId) {
                 needFullReload = true;
@@ -127,6 +131,7 @@ export const handleCustomerOrderListRequest = async (req, res, next) => {
         }
 
         const totalCustomerOrders = await Order.countDocuments(matchFilter);
+        checkTimeout(req);
 
         const effectiveSkip = needFullReload ? 0 : skip;
         const effectiveLimit = needFullReload && limit > 0 ? skip + limit : limit;
@@ -136,6 +141,7 @@ export const handleCustomerOrderListRequest = async (req, res, next) => {
             .skip(effectiveSkip)
             .limit(effectiveLimit)
             .lean();
+        checkTimeout(req);
 
         const customerOrderList = dbCustomerOrderList.map(dbOrder => prepareOrderData(dbOrder, {
             inList: true,
@@ -188,21 +194,32 @@ export const handleCustomerDiscountUpdateRequest = async (req, res, next) => {
     }
 
     try {
-        const dbCustomer = await User.findByIdAndUpdate(
-            customerId,
-            { discount: discountNum },
-            { new: true }
-        );
+        const { customerLbl } = await runInTransaction(async (session) => {
+            const dbCustomer = await User.findByIdAndUpdate(
+                customerId,
+                { discount: discountNum },
+                { new: true, session }
+            );
+            checkTimeout(req);
 
-        if (!dbCustomer) {
-            return safeSendResponse(req, res, 404, { message: `Клиент (ID: ${customerId}) не найден` });
-        }
+            const customerLbl = dbCustomer ? dbCustomer.name : `(ID: ${customerId})`;
+    
+            if (!dbCustomer) {
+                throw createAppError(404, `Клиент ${customerLbl} не найден`);
+            }
+
+            return { customerLbl };
+        });
 
         safeSendResponse(req, res, 200, {
-            message: `Скидка клиента ${dbCustomer.name} успешно изменена на ${discountNum}%`,
+            message: `Скидка клиента ${customerLbl} успешно изменена на ${discountNum}%`,
             updatedFields: { discount: discountNum }
         });
     } catch (err) {
+        if (err.isAppError) {
+            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+        }
+
         next(err);
     }
 };
@@ -225,23 +242,34 @@ export const handleCustomerBanToggleRequest = async (req, res, next) => {
     }
 
     try {
-        const dbCustomer = await User.findByIdAndUpdate(
-            customerId,
-            { isBanned: newBanStatus },
-            { new: true }
-        );
+        const { customerLbl } = await runInTransaction(async (session) => {
+            const dbCustomer = await User.findByIdAndUpdate(
+                customerId,
+                { isBanned: newBanStatus },
+                { new: true, session }
+            );
+            checkTimeout(req);
+        
+            const customerLbl = dbCustomer ? dbCustomer.name : `(ID: ${customerId})`;
+    
+            if (!dbCustomer) {
+                throw createAppError(404, `Клиент ${customerLbl} не найден`);
+            }
 
-        if (!dbCustomer) {
-            return safeSendResponse(req, res, 404, { message: `Клиент (ID: ${customerId}) не найден` });
-        }
+            return { customerLbl };
+        });
 
         const banStatusText = newBanStatus ? 'заблокирован' : 'разблокирован';
 
         safeSendResponse(req, res, 200, {
-            message: `Статус блокировки клиента ${dbCustomer.name}: ${banStatusText}`,
+            message: `Статус блокировки клиента ${customerLbl}: ${banStatusText}`,
             updatedFields: { isBanned: newBanStatus }
         });
     } catch (err) {
+        if (err.isAppError) {
+            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+        }
+
         next(err);
     }
 };

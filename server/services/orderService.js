@@ -111,7 +111,7 @@ export const prepareOrderData = (dbOrder, {
         totalRefunded: dbOrder.financials.totalRefunded,
         eventHistory: prepareHistoryLogs(dbOrder.financials.eventHistory, {
             type: 'financials',
-            latestSummary: inList || !managed
+            latestSummary: !managed
         }),
         currentOnlineTransaction: prepareCurrentOnlineTransaction(
             dbOrder.financials.currentOnlineTransaction,
@@ -563,12 +563,13 @@ export const applyOrderFinancials = (dbOrder, {
 };
 
 export const updateCustomerTotalSpent = async (customerId, amountDelta, session = null, logContext = '') => {
-    if (amountDelta === 0) return;
+    const amountDeltaSafe = +Number(amountDelta).toFixed(2);
+    if (amountDeltaSafe === 0) return;
 
     // Атомарное обновление общей суммы оплат с округлением
     const updateResult = await User.updateOne(
         { _id: customerId },
-        [{ $set: { totalSpent: { $round: [{ $add: ['$totalSpent', amountDelta] }, 2] } } }],
+        [{ $set: { totalSpent: { $round: [{ $add: ['$totalSpent', amountDeltaSafe] }, 2] } } }],
         { session }
     );
 
@@ -580,7 +581,7 @@ export const updateCustomerTotalSpent = async (customerId, amountDelta, session 
             reason: 'Целостность данных нарушена: пользователь не найден для обновления баланса',
             data: {
                 customerId,
-                amountDelta,
+                amountDelta: amountDeltaSafe,
                 action: 'updateCustomerTotalSpent'
             }
         });

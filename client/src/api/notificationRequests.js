@@ -1,7 +1,7 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
-const NOTIFICATION_TIMEOUT = 27000;
+const NOTIFICATION_TIMEOUT = 30000;
 
 /// Загрузка списка уведомлений на страницу (для управления админом или просмотра клиентом) ///
 export const sendNotificationListRequest = (urlParams) => async (dispatch) => {

@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import User from '../database/models/User.js';
 import config from '../config/config.js';
+import { checkTimeout } from './timeoutMiddleware.js';
 import safeSendResponse from '../utils/safeSendResponse.js';
 import { REQUEST_STATUS } from '../../shared/constants.js';
 
@@ -37,6 +38,7 @@ export const verifyAuth = async (req, res, next) => {
 export const verifyUser = async (req, res, next) => {
     try {
         const dbUser = await User.findById(req.user?._id);
+        checkTimeout(req);
 
         if (!dbUser) {
             return safeSendResponse(req, res, 410, {
@@ -97,6 +99,7 @@ export const optionalUser = async (req, res, next) => {
 
     try {
         const dbUser = await User.findById(req.user._id);
+        checkTimeout(req);
 
         if (!dbUser) {
             return safeSendResponse(req, res, 410, {

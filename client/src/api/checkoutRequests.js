@@ -1,7 +1,7 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
-const CHECKOUT_TIMEOUT = 32000;
+const CHECKOUT_TIMEOUT = 35000;
 
 /// Загрузка черновика заказа ///
 export const sendOrderDraftRequest = (orderId) => async (dispatch) => {

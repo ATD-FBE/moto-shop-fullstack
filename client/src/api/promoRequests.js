@@ -1,7 +1,7 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
-const PROMO_TIMEOUT = 22000;
+const PROMO_TIMEOUT = 25000;
 
 /// Загрузка всех акций ///
 export const sendPromoListRequest = (isAuthenticated, urlParams) => async (dispatch) => {

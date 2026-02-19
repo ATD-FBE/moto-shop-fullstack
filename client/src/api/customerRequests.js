@@ -1,7 +1,7 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
-const CUSTOMER_TIMEOUT = 27000;
+const CUSTOMER_TIMEOUT = 30000;
 
 /// Загрузка списков ID всех отфильтрованных клиентов и их данных для одной страницы таблицы ///
 export const sendCustomerListRequest = (urlParams) => async (dispatch) => {

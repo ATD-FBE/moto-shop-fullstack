@@ -1,7 +1,7 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
-const CATEGORY_TIMEOUT = 17000;
+const CATEGORY_TIMEOUT = 20000;
 
 /// Загрузка всех категорий ///
 export const sendCategoryListRequest = () => async (dispatch) => {

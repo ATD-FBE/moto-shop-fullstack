@@ -81,9 +81,7 @@ apiRouter.use('/orders', reqTimeout(30000), orderRouter);
 app.use('/api', apiRouter);
 
 app.use('/sse', cors(sseCorsOptions), sseRouter);
-
 app.get('*', serveReactApp); // Работает в продакшне
-
 app.use(globalErrorHandler);
 
 process.on('SIGINT', () => shutdownMongoDB('SIGINT'));

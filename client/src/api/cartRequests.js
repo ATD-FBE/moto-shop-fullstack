@@ -1,7 +1,7 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
-const CART_TIMEOUT = 12000;
+const CART_TIMEOUT = 15000;
 
 /// Синхронизация гостевой корзины ///
 export const sendGuestCartItemListRequest = (guestCart) => async (dispatch) => {

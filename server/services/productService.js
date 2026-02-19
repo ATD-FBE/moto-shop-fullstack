@@ -8,6 +8,7 @@ import {
     PRODUCT_THUMBNAILS_FOLDER,
     STORAGE_URL_PATH
 } from '../config/paths.js';
+import { storageService } from './storage/storageService.js';
 import {
     PRODUCT_BRAND_NEW_THRESHOLD_MS,
     PRODUCT_RESTOCK_THRESHOLD_MS,
@@ -76,6 +77,12 @@ export const prepareCartProductSnapshotData = (dbCartItem) => ({
     name: dbCartItem.nameSnapshot,
     brand: dbCartItem.brandSnapshot
 });
+
+export const cleanupBulkProductFiles = (ids, reqCtx) => {
+    ids.forEach(id => {
+        storageService.cleanupProductFiles(id, reqCtx);
+    });
+};
 
 // Пропорциональное уменьшение кол-ва товара для оформляющих заказ клиентов при его уменьшении админом
 export const redistributeProductProportionallyInDraftOrders = async (productId, newStock, session) => {

@@ -20,11 +20,11 @@ export default function ProductTableFooter({
                         <div className="cell-label visible">Выбранные товары:</div>
                         <div className="cell-content">{selectedItems.size}</div>
                     </div>
-                    <div role="columnfooter" className="row-cell bulk-edit">
+                    <div role="columnfooter" className="row-cell edit-bulk-product">
                         <div className="cell-label">Редактирование группы:</div>
                         <div className="cell-content">
                             <button
-                                className={cn('bulk-edit-products-btn', { 'enabled': isExpanded })}
+                                className={cn('edit-bulk-product-btn', { 'enabled': isExpanded })}
                                 onClick={() => setIsExpanded(prev => !prev)}
                             >
                                 <span className="icon">{isExpanded ? '🔼' : '🖊'}</span>
@@ -32,11 +32,11 @@ export default function ProductTableFooter({
                             </button>
                         </div>
                     </div>
-                    <div role="columnfooter" className="row-cell bulk-delete">
+                    <div role="columnfooter" className="row-cell delete-bulk-product">
                         <div className="cell-label">Удаление группы:</div>
                         <div className="cell-content">
                             <button
-                                className="bulk-delete-products-btn"
+                                className="delete-bulk-product-btn"
                                 onClick={() => confirmBulkItemDeletion([...selectedItems])}
                                 disabled={uiBlocked || !selectedItems.size}
                             >

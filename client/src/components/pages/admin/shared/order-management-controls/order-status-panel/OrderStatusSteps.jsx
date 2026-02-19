@@ -2,6 +2,7 @@ import React, { useMemo, useReducer, useState, useRef, useEffect }  from 'react'
 import { useDispatch } from 'react-redux';
 import cn from 'classnames';
 import { sendOrderStatusUpdateRequest } from '@/api/orderRequests.js';
+import { setIsNavigationBlocked } from '@/redux/slices/uiSlice.js';
 import { logRequestStatus } from '@/helpers/requestLogger.js';
 import { toKebabCase, getFieldInfoClass } from '@/helpers/textHelpers.js';
 import { openAlertModal } from '@/services/modalAlertService.js';
@@ -257,6 +258,7 @@ export default function OrderStatusSteps({
         }
     
         setOrderStatusLoading(true);
+        dispatch(setIsNavigationBlocked(true));
     
         const action =
             rollback
@@ -296,6 +298,7 @@ export default function OrderStatusSteps({
         }
     
         setOrderStatusLoading(false);
+        dispatch(setIsNavigationBlocked(false));
     };
 
     // Очистка при размонтировании

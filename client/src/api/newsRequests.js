@@ -1,7 +1,7 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
-const NEWS_TIMEOUT = 17000;
+const NEWS_TIMEOUT = 20000;
 
 /// Загрузка всех новостей ///
 export const sendNewsListRequest = (isAuthenticated) => async (dispatch) => {

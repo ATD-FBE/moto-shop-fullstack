@@ -1,7 +1,7 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
-const AUTH_TIMEOUT = 17000;
+const AUTH_TIMEOUT = 20000;
 
 /// Регистрация ///
 export const sendAuthRegistrationRequest = (formFields, guestCart) => async (dispatch) => {

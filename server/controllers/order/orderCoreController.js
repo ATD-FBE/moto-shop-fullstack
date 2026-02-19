@@ -1,6 +1,7 @@
 import Order from '../../database/models/Order.js';
 import Product from '../../database/models/Product.js';
 import { ORDER_VIEW_MATRIX } from '../../config/viewPolicy.js';
+import { checkTimeout } from '../../middlewares/timeoutMiddleware.js';
 import { storageService } from '../../services/storage/storageService.js';
 import * as sseOrderManagement from '../../services/sse/sseOrderManagementService.js';
 import {
@@ -85,6 +86,7 @@ export const handleOrderListRequest = async (req, res, next) => {
                         Order.countDocuments(completedFilter)
                         // Без cancelledCount, т.к. dbCancelledOrders ограничивается в конце общим limit
                     ]);
+                    checkTimeout(req);
     
                     // Сначала активные, потом завершённые, потом отменённые
                     let dbActiveOrders = [], dbCompletedOrders = [], dbCancelledOrders = [];
@@ -97,6 +99,7 @@ export const handleOrderListRequest = async (req, res, next) => {
                             .skip(skip)
                             .limit(activeLimit)
                             .lean();
+                        checkTimeout(req);
                         
                         const remaining1 = limit - dbActiveOrders.length;
     
@@ -105,6 +108,7 @@ export const handleOrderListRequest = async (req, res, next) => {
                                 .sort({ lastActivityAt: -1 })
                                 .limit(remaining1)
                                 .lean();
+                            checkTimeout(req);
                             
                             const remaining2 = remaining1 - dbCompletedOrders.length;
     
@@ -113,6 +117,7 @@ export const handleOrderListRequest = async (req, res, next) => {
                                     .sort({ lastActivityAt: -1 })
                                     .limit(remaining2)
                                     .lean();
+                                checkTimeout(req);
                             }
                         }
                     } else if (skip < activeCount + completedCount) {
@@ -124,6 +129,7 @@ export const handleOrderListRequest = async (req, res, next) => {
                             .skip(completedSkip)
                             .limit(completedLimit)
                             .lean();
+                        checkTimeout(req);
                         
                         const remaining = limit - dbCompletedOrders.length;
     
@@ -132,6 +138,7 @@ export const handleOrderListRequest = async (req, res, next) => {
                                 .sort({ lastActivityAt: -1 })
                                 .limit(remaining)
                                 .lean();
+                            checkTimeout(req);
                         }
                     } else {
                         const cancelledSkip = skip - activeCount - completedCount;
@@ -141,6 +148,7 @@ export const handleOrderListRequest = async (req, res, next) => {
                             .skip(cancelledSkip)
                             .limit(limit)
                             .lean();
+                        checkTimeout(req);
                     }
     
                     dbPaginatedOrderList = [...dbActiveOrders, ...dbCompletedOrders, ...dbCancelledOrders];
@@ -151,6 +159,7 @@ export const handleOrderListRequest = async (req, res, next) => {
                         .skip(skip)
                         .limit(limit)
                         .lean();
+                    checkTimeout(req);
                 }
 
                 break;
@@ -166,6 +175,7 @@ export const handleOrderListRequest = async (req, res, next) => {
                     .skip(skip)
                     .limit(limit)
                     .lean();
+                checkTimeout(req);
 
                 break;
             }
@@ -179,8 +189,9 @@ export const handleOrderListRequest = async (req, res, next) => {
 
         if (!baseFilter.currentStatus) baseFilter.currentStatus = { $ne: ORDER_STATUS.DRAFT };
         const dbFilteredOrders = await Order.find({ ...baseFilter }).select('_id').lean();
-        const filteredOrderIdList = dbFilteredOrders.map(ord => ord._id);
+        checkTimeout(req);
 
+        const filteredOrderIdList = dbFilteredOrders.map(ord => ord._id);
         const paginatedOrderList = dbPaginatedOrderList.map(dbOrder => prepareOrderData(dbOrder, {
             inList: true,
             managed: isManaged,
@@ -213,6 +224,8 @@ export const handleOrderRequest = async (req, res, next) => {
 
     try {
         const dbOrder = await Order.findById(orderId).populate('customerId', 'name email').lean();
+        checkTimeout(req);
+
         const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
         
         if (!dbOrder) {
@@ -238,6 +251,8 @@ export const handleOrderItemsAvailabilityRequest = async (req, res, next) => {
 
     try {
         const dbOrder = await Order.findById(orderId).select('items.productId').lean();
+        checkTimeout(req);
+
         const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
         
         if (!dbOrder) {
@@ -248,6 +263,7 @@ export const handleOrderItemsAvailabilityRequest = async (req, res, next) => {
         const dbOrderProducts = await Product.find({ _id: { $in: productIds } })
             .select('stock reserved')
             .lean();
+        checkTimeout(req);
 
         const dbOrderProductMap = new Map(dbOrderProducts.map(prod => [prod._id.toString(), prod]));
 
@@ -279,37 +295,50 @@ export const handleOrderRepeatRequest = async (req, res, next) => {
     }
 
     try {
-        const dbOrder = await Order.findById(orderId).select('customerId currentStatus items').lean();
-        const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
+        const { orderLbl } = await runInTransaction(async (session) => {
+            const dbOrder = await Order.findById(orderId)
+                .select('customerId currentStatus items')
+                .lean()
+                .session(session);
+            checkTimeout(req);
 
-        if (!dbOrder) {
-            return safeSendResponse(req, res, 404, { message: `Заказ ${orderLbl} не найден` });
-        }
-        if (dbUser._id.toString() !== dbOrder.customerId.toString()) {
-            return safeSendResponse(req, res, 403, {
-                message: `Запрещено: заказ ${orderLbl} принадлежит другому клиенту`,
-                reason: REQUEST_STATUS.DENIED
-            });
-        }
-        if (!ORDER_FINAL_STATUSES.includes(dbOrder.currentStatus)) {
-            return safeSendResponse(req, res, 403, {
-                message: `Статус заказа ${orderLbl} не позволяет его повторить`,
-                reason: REQUEST_STATUS.DENIED
-            });
-        }
+            const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
 
-        dbUser.cart = dbOrder.items.map(({ productId, quantity, name, brand }) => ({
-            productId,
-            quantity,
-            nameSnapshot: name,
-            brandSnapshot: brand ?? null
-        }));
-        await dbUser.save();
+            if (!dbOrder) {
+                throw createAppError(404, `Заказ ${orderLbl} не найден`);
+            }
+            if (dbUser._id.toString() !== dbOrder.customerId.toString()) {
+                throw createAppError(403, `Запрещено: заказ ${orderLbl} принадлежит другому клиенту`, {
+                    reason: REQUEST_STATUS.DENIED
+                });
+            }
+            if (!ORDER_FINAL_STATUSES.includes(dbOrder.currentStatus)) {
+                throw createAppError(403, `Статус заказа ${orderLbl} не позволяет его повторить`, {
+                    reason: REQUEST_STATUS.DENIED
+                });
+            }
+
+            dbUser.cart = dbOrder.items.map(({ productId, quantity, name, brand }) => ({
+                productId,
+                quantity,
+                nameSnapshot: name,
+                brandSnapshot: brand ?? null
+            }));
+
+            await dbUser.save({ session });
+            checkTimeout(req);
+
+            return { orderLbl };
+        });
 
         safeSendResponse(req, res, 200, {
             message: `Товары из заказа ${orderLbl} повторно добавлены в корзину`
         });
     } catch (err) {
+        if (err.isAppError) {
+            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+        }
+
         next(err);
     }
 };
@@ -337,27 +366,34 @@ export const handleOrderInternalNoteUpdateRequest = async (req, res, next) => {
 
     // Работа с базой данных
     try {
-        const dbOrder = await Order.findById(orderId);
-        const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
+        const { updatedOrderData, orderLbl } = await runInTransaction(async (session) => {
+            const dbOrder = await Order.findById(orderId).session(session);
+            checkTimeout(req);
 
-        if (!dbOrder) {
-            return safeSendResponse(req, res, 404, { message: `Заказ ${orderLbl} не найден` });
-        }
+            const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
+    
+            if (!dbOrder) {
+                throw createAppError(404, `Заказ ${orderLbl} не найден`);
+            }
+    
+            // Подготовка данных и проверка на изменение
+            const prepDbFields = { internalNote: internalNote?.trim() || null };
+            dbOrder.set(prepDbFields);
+                    
+            if (!dbOrder.isModified()) {
+                throw createAppError(204);
+            }
+    
+            // Сохранение заказа
+            await dbOrder.save({ session });
+            checkTimeout(req);
 
-        // Подготовка данных и проверка на изменение
-        const prepDbFields = { internalNote: internalNote?.trim() || null };
-        dbOrder.set(prepDbFields);
-                
-        if (!dbOrder.isModified()) {
-            return safeSendResponse(req, res, 204);
-        }
+            // Формирование данных для SSE-сообщения
+            const orderPatches = [{ path: 'internalNote', value: prepDbFields.internalNote }];
+            const updatedOrderData = { orderPatches };
 
-        // Сохранение заказа
-        await dbOrder.save();
-
-        // Формирование данных для SSE-сообщения
-        const orderPatches = [{ path: 'internalNote', value: prepDbFields.internalNote }];
-        const updatedOrderData = { orderPatches };
+            return { updatedOrderData, orderLbl };
+        });
 
         // Отправка SSE-сообщения админам
         const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };
@@ -365,7 +401,10 @@ export const handleOrderInternalNoteUpdateRequest = async (req, res, next) => {
 
         safeSendResponse(req, res, 200, { message: `Внутренняя заметка заказа ${orderLbl} изменена` });
     } catch (err) {
-        // Обработка ошибок валидации полей при сохранении в MongoDB
+        if (err.isAppError) {
+            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+        }
+
         if (err.name === 'ValidationError') {
             const { unknownFieldError, fieldErrors } = parseValidationErrors(err, 'order');
             if (unknownFieldError) return next(unknownFieldError);
@@ -446,6 +485,8 @@ export const handleOrderDetailsUpdateRequest = async (req, res, next) => {
     try {
         const { orderLbl, updatedOrderData } = await runInTransaction(async (session) => {
             const dbOrder = await Order.findById(orderId).session(session);
+            checkTimeout(req);
+
             const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
             
             if (!dbOrder) {
@@ -500,6 +541,7 @@ export const handleOrderDetailsUpdateRequest = async (req, res, next) => {
             // Установка через set и сохранение через save для удаления null-полей и пустых объектов
             dbOrder.set(mergedOrder);
             const updatedDbOrder = await dbOrder.save({ session });
+            checkTimeout(req);
 
             // Формирование данных для SSE-сообщения
             const orderPatches = changes.map(({ field, newValue }) => ({ path: field, value: newValue }));
@@ -596,6 +638,8 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
 
         const { orderLbl, updatedOrderData, itemsAdjustments } = await runInTransaction(async (session) => {
             const dbOrder = await Order.findById(orderId).session(session);
+            checkTimeout(req);
+
             const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
             
             if (!dbOrder) {
@@ -614,11 +658,12 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
 
             const productIds = items.map(item => item.productId);
             const dbProducts = await Product.find({ _id: { $in: productIds } }).lean().session(session);
+            checkTimeout(req);
 
             const dbProductMap = new Map(dbProducts.map(prod => [prod._id.toString(), prod]));
             const orderItemsDeltaQty = [];
 
-            items.forEach(async ({ productId, quantity }) => {
+            items.forEach(({ productId, quantity }) => {
                 const dbProduct = dbProductMap.get(productId);
                 const adjustments = {};
 
@@ -715,6 +760,7 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
 
                 // Изменение количества товаров на складе
                 await applyProductBulkUpdate(orderItemsDeltaQty, 'adjustAfterCommit', session);
+                checkTimeout(req);
 
                 // Сбор данных для логов изменения сумм
                 Object.entries(updatedOrder.totals)
@@ -775,6 +821,7 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
             // Установка через set и сохранение через save для удаления null-полей и пустых объектов
             dbOrder.set(updatedOrder);
             const updatedDbOrder = await dbOrder.save({ session });
+            checkTimeout(req);
 
             // Формирование данных для SSE-сообщения
             const orderPatches = changes.map(({ field, newValue }) => ({ path: field, value: newValue }));
@@ -784,19 +831,20 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
             return { orderLbl, updatedOrderData, itemsAdjustments };
         });
 
-        // Удаление миниатюр фотографий товаров в заказе при удалении товаров (безопасно)
-        if (imageFilenamesToDelete.length > 0) {
-            await storageService.deleteOrderItemsImages(orderId, imageFilenamesToDelete, reqCtx);
-        }
-
         // Отправка SSE-сообщения админам
         const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };
         sseOrderManagement.sendToAllClients(sseMessageData);
 
+        // Отправка ответа клиенту
         safeSendResponse(req, res, 200, {
             message: `Заказ ${orderLbl} успешно изменён`,
             orderItemsAdjustments: itemsAdjustments
         });
+
+        // Удаление миниатюр фотографий товаров в заказе при удалении товаров (безопасно)
+        if (imageFilenamesToDelete.length > 0) {
+            storageService.deleteOrderItemsImages(orderId, imageFilenamesToDelete, reqCtx);
+        }
     } catch (err) {
         // Обработка контролируемой ошибки
         if (err.isAppError) {
@@ -853,6 +901,8 @@ export const handleOrderStatusUpdateRequest = async (req, res, next) => {
         const { orderLbl, updatedOrderData } = await runInTransaction(async (session) => {
             // Поиск и проверка наличия документа заказа
             const dbOrder = await Order.findById(orderId).session(session);
+            checkTimeout(req);
+
             const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
 
             if (!dbOrder) {
@@ -926,6 +976,7 @@ export const handleOrderStatusUpdateRequest = async (req, res, next) => {
                         // Изменение стоимости доставки
                         newShippingCost = prepDbFields.shippingCost;
                     }
+
                     break;
                 }
 
@@ -954,6 +1005,7 @@ export const handleOrderStatusUpdateRequest = async (req, res, next) => {
                     ) {
                         newShippingCost = prepareShippingCost(deliveryMethod, allowCourierExtra);
                     }
+
                     break;
                 }
 
@@ -976,6 +1028,7 @@ export const handleOrderStatusUpdateRequest = async (req, res, next) => {
                     if (currentShippingCost === null) {
                         newShippingCost = undefined;
                     }
+                    
                     break;
                 }
 
@@ -1037,20 +1090,23 @@ export const handleOrderStatusUpdateRequest = async (req, res, next) => {
             
             // Сохранение докумета
             const updatedDbOrder = await dbOrder.save({ session });
+            checkTimeout(req);
 
             // Обновление общей суммы оплат покупателя при завершении заказа
             if (updatedDbOrder.currentStatus === ORDER_STATUS.COMPLETED) {
                 await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaid, session, req.reqCtx);
+                checkTimeout(req);
             }
 
             // Возвращение заказанного количества товаров на склад при отмене заказа
             if (updatedDbOrder.currentStatus === ORDER_STATUS.CANCELLED) {
                 await returnProductsToStore(updatedDbOrder.items, session);
+                checkTimeout(req);
             }
 
             // Формирование данных для SSE-сообщения
             const orderPatches = changes.map(({ field, newValue }) => ({ path: field, value: newValue }));
-            let newOrderStatusEntry = updatedDbOrder.statusHistory.at(-1).toObject();
+            const newOrderStatusEntry = updatedDbOrder.statusHistory.at(-1).toObject();
 
             if (updatedDbOrder.currentStatus === ORDER_STATUS.CANCELLED) {
                 newOrderStatusEntry.lastActiveStatus = getLastActiveStatus(updatedDbOrder.statusHistory);

@@ -4,6 +4,7 @@ import { checkTimeout } from '../middlewares/timeoutMiddleware.js';
 import { storageService } from '../services/storage/storageService.js';
 import {
     prepareProductData,
+    cleanupBulkProductFiles,
     redistributeProductProportionallyInDraftOrders,
     buildProductsComputedFields,
     buildCategoriesPipeline
@@ -16,8 +17,8 @@ import {
     buildOrderedFiltersPipeline
 } from '../utils/aggregationBuilders.js';
 import { typeCheck, validateInputTypes } from '../utils/typeValidation.js';
-import { runInTransaction } from '../utils/transaction.js';
 import { isArrayContentDifferent } from '../utils/compareUtils.js';
+import { runInTransaction } from '../utils/transaction.js';
 import { createAppError, prepareAppErrorData } from '../utils/errorUtils.js';
 import { parseValidationErrors } from '../utils/errorUtils.js';
 import safeSendResponse from '../utils/safeSendResponse.js';
@@ -82,6 +83,7 @@ export const handleProductListRequest = async (req, res, next) => {
 
         // Агрегатный запрос
         const aggregateResult = await Product.aggregate(pipeline);
+        checkTimeout(req);
         
         const filteredProductIdList = aggregateResult[0]?.filteredProductIdList.map(c => c._id) || [];
         const dbPaginatedProductList = aggregateResult[0]?.paginatedProductList || [];
@@ -139,14 +141,14 @@ export const handleProductListRequest = async (req, res, next) => {
 
         // Агрегатный запрос
         const aggregateResult = await Product.aggregate(pipeline);
+        checkTimeout(req);
         
         const productCount = aggregateResult[0]?.totalCount[0]?.count || 0;
-        let limitedProductList = aggregateResult[0]?.limitedProductList || [];
+        const dbLimitedProductList = aggregateResult[0]?.limitedProductList || [];
 
-        const now = Date.now();
-        limitedProductList = limitedProductList.map(product => prepareProductData(product, {
+        const limitedProductList = dbLimitedProductList.map(product => prepareProductData(product, {
             managed: isAdmin,
-            now
+            now: Date.now()
         }));
 
         safeSendResponse(req, res, 200, {
@@ -170,6 +172,7 @@ export const handleProductRequest = async (req, res, next) => {
 
     try {
         const dbProduct = await Product.findById(productId).lean();
+        checkTimeout(req);
 
         if (!dbProduct) {
             return safeSendResponse(req, res, 404, { message: `Товар (ID: ${productId}) не найден` });
@@ -229,12 +232,12 @@ export const handleProductCreateRequest = async (req, res, next) => {
     }
 
     // Проверка на согласованность индекса и количества фотографий
-    const noImagesLeft = images.length === 0;
+    const noImages = images.length === 0;
     const indexOutOfRange = mainImageIndexNum >= images.length;
 
     if (
         (images.length > 0 && mainImageIndex === undefined) ||
-        (!fileUploadError && mainImageIndex !== undefined && (noImagesLeft || indexOutOfRange))
+        (!fileUploadError && mainImageIndex !== undefined && (noImages || indexOutOfRange))
     ) {
         return safeSendResponse(req, res, 400, { message: 'Несогласованные данные для фотографий товара' });
     }
@@ -242,9 +245,10 @@ export const handleProductCreateRequest = async (req, res, next) => {
     let newProductId;
 
     try {
-        const newDbProduct = await runInTransaction(async (session) => {
+        const { newDbProduct } = await runInTransaction(async (session) => {
             // Проверка на существование категории товара
             const dbCategory = await Category.findById(category).session(session);
+            checkTimeout(req);
                 
             if (!dbCategory) {
                 throw createAppError(404, `Категория товаров (ID: ${category}) не найдена`);
@@ -252,6 +256,7 @@ export const handleProductCreateRequest = async (req, res, next) => {
 
             // Проверка того, что категория товара не имеет подкатегорий
             const hasSubcategories = await Category.exists({ parent: category }).session(session);
+            checkTimeout(req);
 
             if (hasSubcategories) {
                 throw createAppError(
@@ -262,6 +267,7 @@ export const handleProductCreateRequest = async (req, res, next) => {
 
             // Подготовка данных
             const prepDbFields = {
+                imageFilenames: images.map(img => img.filename),
                 mainImageIndex: mainImageIndex === undefined ? null : mainImageIndexNum,
                 sku: sku?.trim() || null,
                 name: name.trim(),
@@ -290,16 +296,14 @@ export const handleProductCreateRequest = async (req, res, next) => {
             }
 
             // Предварительная валидация до работы с файловой системой
-            await newProductDoc.validate({ pathsToSkip: ['imageFilenames'] });
+            await newProductDoc.validate();
+            checkTimeout(req);
 
             // Перенос файлов фотографий в хранилище файлов товара и создание иконок
             if (images.length > 0) {
                 newProductId = newProductDoc._id.toString(); // ID создался при валидации
-
                 await storageService.saveProductImages(newProductId, images, req);
                 checkTimeout(req);
-
-                newProductDoc.imageFilenames = images.map(img => img.filename);
             }
 
             // Добавление лога создания и сохранение документа товара
@@ -307,7 +311,7 @@ export const handleProductCreateRequest = async (req, res, next) => {
             const newDbProduct = await newProductDoc.save({ session });
             checkTimeout(req);
 
-            return newDbProduct;
+            return { newDbProduct };
         });
 
         // Отправка успешного ответа клиенту
@@ -390,23 +394,28 @@ export const handleProductUpdateRequest = async (req, res, next) => {
     }
 
     const newImageFilenames = images.map(img => img.filename);
-    let hasCurrentImages = false;
+    let rollbackCleanupFiles = false;
 
     try {
-        let filesToDeleteData = null;
-
-        const updatedDbProduct = await runInTransaction(async (session) => {
+        const transactionResult = await runInTransaction(async (session) => {
             // Проверка на существование изменяемого товара
             const dbProduct = await Product.findById(productId).session(session);
+            checkTimeout(req);
+
+            const prodLbl = dbProduct ? `"${dbProduct.name}"` : `(ID: ${productId})`;
                 
             if (!dbProduct) {
-                throw createAppError(404, `Товар (ID: ${productId}) не найден`);
+                throw createAppError(404, `Товар ${prodLbl} не найден`);
             }
+
+            const oldImageFilenames = dbProduct.imageFilenames;
+            rollbackCleanupFiles = !oldImageFilenames.length;
 
             // Проверки новой катагории товара
             if (category !== dbProduct.category.toString()) {
                 // Проверка на существование категории товара
                 const dbCategory = await Category.findById(category).session(session);
+                checkTimeout(req);
                             
                 if (!dbCategory) {
                     throw createAppError(404, `Категория товаров (ID: ${category}) не найдена`);
@@ -414,6 +423,7 @@ export const handleProductUpdateRequest = async (req, res, next) => {
 
                 // Проверка того, что категория товара не имеет подкатегорий
                 const hasSubcategories = await Category.exists({ parent: category }).session(session);
+                checkTimeout(req);
 
                 if (hasSubcategories) {
                     throw createAppError(
@@ -424,24 +434,22 @@ export const handleProductUpdateRequest = async (req, res, next) => {
             }
 
             // Фильтрация существующих имён файлов фотографий для удаления и их апдейт
-            const currentImageFilenames = dbProduct.imageFilenames;
-            hasCurrentImages = currentImageFilenames.length > 0;
             const actualImgFilenamesToDelete = imageFilenamesToDelete
-                .filter(filename => currentImageFilenames.includes(filename));
+                .filter(filename => oldImageFilenames.includes(filename));
             const imgFilenamesToDeleteSet = new Set(actualImgFilenamesToDelete);
-            const preparedImgFilenames = currentImageFilenames
+            const preparedImgFilenames = oldImageFilenames
                 .filter(filename => !imgFilenamesToDeleteSet.has(filename))
                 .concat(newImageFilenames);
 
             // Проверка на согласованность индекса и изменённого количества фотографий
-            const noImagesLeft = preparedImgFilenames.length === 0;
+            const noImages = preparedImgFilenames.length === 0;
             const indexOutOfRange = mainImageIndexNum >= preparedImgFilenames.length;
 
             if (
                 (preparedImgFilenames.length > 0 && mainImageIndex === undefined) ||
-                (!fileUploadError && mainImageIndex !== undefined && (noImagesLeft || indexOutOfRange))
+                (!fileUploadError && mainImageIndex !== undefined && (noImages || indexOutOfRange))
             ) {
-                throw createAppError(400, 'Несогласованные данные для фотографий товара');
+                throw createAppError(400, `Несогласованные данные для фотографий товара ${prodLbl}`);
             }
 
             // Подготовка данных
@@ -504,7 +512,9 @@ export const handleProductUpdateRequest = async (req, res, next) => {
             }
 
             // Предварительная валидация до работы с файловой системой
+            // Массивы исключены, так как проверены ранее отдельно
             await dbProduct.validate({ pathsToSkip: ['imageFilenames', 'tags'] });
+            checkTimeout(req);
 
             // Перенос новых фотографий в хранилище файлов товара
             if (images.length > 0) {
@@ -514,7 +524,7 @@ export const handleProductUpdateRequest = async (req, res, next) => {
 
             // Добавление лога редактирования и сохранение в базе MongoDB с валидацией полей
             dbProduct.updatedBy = userId;
-            await dbProduct.save({ session });
+            const updatedDbProduct = await dbProduct.save({ session });
             checkTimeout(req);
 
             // Пропорциональное распределение зарезервированных товаров среди клиентов, оформляющих заказ
@@ -523,29 +533,31 @@ export const handleProductUpdateRequest = async (req, res, next) => {
                 checkTimeout(req);
             }
 
-            // Подготовка данных для удаления файлов после транзакции
-            if (actualImgFilenamesToDelete.length > 0) {
-                filesToDeleteData = {
+            // Подготовка данных для удаления файлов
+            const postUpdateFileCleanup = actualImgFilenamesToDelete.length > 0
+                ? {
                     filenames: actualImgFilenamesToDelete,
-                    deleteAll: preparedImgFilenames.length === 0
-                };
-            }
+                    fullCleanup: preparedImgFilenames.length === 0
+                }
+                : null;
 
-            return dbProduct;
+            return { prodLbl, updatedDbProduct, postUpdateFileCleanup };
         });
+
+        const { prodLbl, updatedDbProduct, postUpdateFileCleanup } = transactionResult;
 
         // Отправка успешного ответа клиенту
         safeSendResponse(req, res, 200, {
-            message: `Товар "${updatedDbProduct.name}" успешно обновлён`,
+            message: `Товар "${prodLbl}" успешно обновлён`,
             updatedProduct: prepareProductData(updatedDbProduct, { managed: true })
         });
 
         // Удаление выбранных файлов старых фотографий товара (безопасно)
-        if (filesToDeleteData) {
-            if (filesToDeleteData.deleteAll) {
+        if (postUpdateFileCleanup) {
+            if (postUpdateFileCleanup.fullCleanup) {
                 storageService.cleanupProductFiles(productId, reqCtx);
             } else {
-                storageService.deleteProductImages(productId, filesToDeleteData.filenames, reqCtx);
+                storageService.deleteProductImages(productId, postUpdateFileCleanup.filenames, reqCtx);
             }
         }
     } catch (err) {
@@ -553,10 +565,10 @@ export const handleProductUpdateRequest = async (req, res, next) => {
         if (images.length > 0) {
            storageService.deleteTempFiles(images, reqCtx);
 
-            if (hasCurrentImages) {
-                storageService.deleteProductImages(productId, newImageFilenames, reqCtx);
-            } else {
+            if (rollbackCleanupFiles) {
                 storageService.cleanupProductFiles(productId, reqCtx);
+            } else {
+                storageService.deleteProductImages(productId, newImageFilenames, reqCtx);
             }
         }
 
@@ -632,6 +644,7 @@ export const handleBulkProductUpdateRequest = async (req, res, next) => {
             if (category !== undefined) {
                 // Проверка на существование категории товара
                 const dbCategory = await Category.findById(category).session(session);
+                checkTimeout(req);
                             
                 if (!dbCategory) {
                     throw createAppError(404, `Категория товаров (ID: ${category}) не найдена`);
@@ -639,6 +652,7 @@ export const handleBulkProductUpdateRequest = async (req, res, next) => {
 
                 // Проверка того, что категория товара не имеет подкатегорий
                 const hasSubcategories = await Category.exists({ parent: category }).session(session);
+                checkTimeout(req);
 
                 if (hasSubcategories) {
                     throw createAppError(
@@ -755,7 +769,6 @@ export const handleProductDeleteRequest = async (req, res, next) => {
         const dbProduct = await runInTransaction(async (session) => {
             // Поиск и удаление документа в базе MongoDB
             const dbProduct = await Product.findByIdAndDelete(productId).session(session);
-
             checkTimeout(req);
 
             if (!dbProduct) {
@@ -801,20 +814,19 @@ export const handleBulkProductDeleteRequest = async (req, res, next) => {
     }
 
     try {
-        const { statusCode, responseData, productIdsToCleanup } = await runInTransaction(async (session) => {
+        const { statusCode, responseData } = await runInTransaction(async (session) => {
             // Поиск и сбор ID удаляемых товаров
             const existingProductDocs = await Product
                 .find({ _id: { $in: uniqueProductIds } }, '_id')
                 .session(session);
             checkTimeout(req);
 
-            const existingProductIds = existingProductDocs.map(doc => doc._id.toString());
-
-            if (!existingProductIds.length) {
+            if (!existingProductDocs.length) {
                 throw createAppError(404, 'Ни один товар не найден');
             }
 
             // Поиск по ID и удаление документов в базе MongoDB
+            const existingProductIds = existingProductDocs.map(doc => doc._id.toString());
             const deletionResult = await Product
                 .deleteMany({ _id: { $in: existingProductIds } })
                 .session(session);
@@ -826,26 +838,29 @@ export const handleBulkProductDeleteRequest = async (req, res, next) => {
             if (deletedCount < total) {
                 return {
                     statusCode: 207,
-                    responseData: { message: `Товары частично удалены: ${deletedCount} из ${total}` },
-                    productIdsToCleanup: existingProductIds
+                    responseData: { message: `Товары частично удалены: ${deletedCount} из ${total}` }
                 };
             }
 
             return {
                 statusCode: 200,
-                responseData: { message: 'Все товары успешно удалены' },
-                productIdsToCleanup: existingProductIds
+                responseData: { message: 'Все товары успешно удалены' }
             };
         });
 
         safeSendResponse(req, res, statusCode, responseData);
 
         // Удаление файлов фотографий товара, если они были (безопасно)
-        Promise.all(productIdsToCleanup.map(id => storageService.cleanupProductFiles(id, reqCtx)));
+        cleanupBulkProductFiles(uniqueProductIds, reqCtx);
     } catch (err) {
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+
+            // Удаление файлов фотографий товара, если они были (безопасно)
+            if (err.statusCode === 404) cleanupBulkProductFiles(uniqueProductIds, reqCtx);
+
+            return;
         }
 
         next(err);

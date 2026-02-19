@@ -1,6 +1,9 @@
 import Product from '../database/models/Product.js';
+import { checkTimeout } from '../middlewares/timeoutMiddleware.js';
 import { prepareGuestCart, prepareCart, prepareFixedDbCart } from '../services/cartService.js';
 import { typeCheck, validateInputTypes } from '../utils/typeValidation.js';
+import { runInTransaction } from '../utils/transaction.js';
+import { createAppError, prepareAppErrorData } from '../utils/errorUtils.js';
 import safeSendResponse from '../utils/safeSendResponse.js';
 
 /// Синхронизация гостевой корзины ///
@@ -19,6 +22,7 @@ export const handleGuestCartItemListRequest = async (req, res, next) => {
 
     try {
         const { purchaseProductList, cartItemList } = await prepareGuestCart(guestCart);
+        checkTimeout(req);
 
         safeSendResponse(req, res, 200, {
             message: 'Гостевая корзина успешно синхронизирована',
@@ -36,6 +40,7 @@ export const handleCartItemListRequest = async (req, res, next) => {
 
     try {
         const { purchaseProductList, cartItemList } = await prepareCart(dbUser.cart);
+        checkTimeout(req);
 
         safeSendResponse(req, res, 200, {
             message: 'Корзина успешно загружена',
@@ -76,31 +81,45 @@ export const handleCartItemUpdateRequest = async (req, res, next) => {
     }
 
     try {
-        if (quantityNum === 0) {
-            dbUser.cart = dbUser.cart.filter(item => !item.productId.equals(productId));
-        } else {
-            const dbProduct = await Product.findById(productId).select('name brand').lean();
+        const { prodLbl } = await runInTransaction(async (session) => {
+            let prodLbl = `(ID: ${productId})`;
 
-            if (!dbProduct) {
-                return safeSendResponse(req, res, 404, { message: 'Товар не найден' });
-            }
-
-            const existingItem = dbUser.cart.find(item => item.productId.equals(productId));
-            const nameSnapshot = dbProduct.name;
-            const brandSnapshot = dbProduct.brand ?? null;
-
-            // Актуальное количество товара на складе не проверяется
-            if (existingItem) {
-                Object.assign(existingItem, { quantity: quantityNum, nameSnapshot, brandSnapshot });
+            if (quantityNum === 0) {
+                dbUser.cart = dbUser.cart.filter(item => !item.productId.equals(productId));
             } else {
-                dbUser.cart.push({ productId, quantity: quantityNum, nameSnapshot, brandSnapshot });
+                const dbProduct = await Product.findById(productId).lean().session(session);
+                checkTimeout(req);
+    
+                if (!dbProduct) {
+                    throw createAppError(404, `Товар ${prodLbl} не найден`);
+                }
+
+                prodLbl = `"${dbProduct.name}"`;
+
+                const existingItem = dbUser.cart.find(item => item.productId.equals(productId));
+                const nameSnapshot = dbProduct.name;
+                const brandSnapshot = dbProduct.brand ?? null;
+    
+                // Актуальное количество товара на складе не проверяется
+                if (existingItem) {
+                    Object.assign(existingItem, { quantity: quantityNum, nameSnapshot, brandSnapshot });
+                } else {
+                    dbUser.cart.push({ productId, quantity: quantityNum, nameSnapshot, brandSnapshot });
+                }
             }
+    
+            await dbUser.save({ session });
+            checkTimeout(req);
+
+            return { prodLbl };
+        });
+
+        safeSendResponse(req, res, 200, { message: `Количество товара ${prodLbl} в корзине изменено` });
+    } catch (err) {
+        if (err.isAppError) {
+            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
         }
 
-        await dbUser.save();
-
-        safeSendResponse(req, res, 200, { message: 'Количество товара в корзине изменено' });
-    } catch (err) {
         next(err);
     }
 };
@@ -136,33 +155,45 @@ export const handleCartItemRestoreRequest = async (req, res, next) => {
     if (!Number.isInteger(positionNum) || positionNum < 0) {
         return safeSendResponse(req, res, 400, { message: 'Некорректное значение поля: position' });
     }
+    
+    const isItemInCart = dbUser.cart.some(item => item.productId.equals(productId));
+
+    if (isItemInCart) {
+        return safeSendResponse(req, res, 400, { message: 'Товар уже есть в корзине' });
+    }
 
     try {
-        const isItemInCart = dbUser.cart.some(item => item.productId.equals(productId));
+        const { prodLbl } = await runInTransaction(async (session) => {
+            const dbProduct = await Product.findById(productId).lean().session(session);
+            checkTimeout(req);
 
-        if (isItemInCart) {
-            return safeSendResponse(req, res, 400, { message: 'Товар уже есть в корзине' });
-        }
+            const prodLbl = dbProduct ? `"${dbProduct.name}"` : `(ID: ${productId})`;
 
-        const dbProduct = await Product.findById(productId).select('name brand').lean();
+            if (!dbProduct) {
+                throw createAppError(404, `Товар ${prodLbl} не найден`);
+            }
+    
+            const insertPos = positionNum <= dbUser.cart.length ? positionNum : dbUser.cart.length;
+            const newItem = {
+                productId,
+                quantity: quantityNum,
+                nameSnapshot: dbProduct.name,
+                brandSnapshot: dbProduct.brand ?? null
+            };
+    
+            dbUser.cart.splice(insertPos, 0, newItem);
+            await dbUser.save({ session });
+            checkTimeout(req);
 
-        if (!dbProduct) {
-            return safeSendResponse(req, res, 404, { message: 'Товар не найден' });
-        }
+            return { prodLbl };
+        });
 
-        const insertPos = positionNum <= dbUser.cart.length ? positionNum : dbUser.cart.length;
-        const newItem = {
-            productId,
-            quantity: quantityNum,
-            nameSnapshot: dbProduct.name,
-            brandSnapshot: dbProduct.brand ?? null
-        };
-
-        dbUser.cart.splice(insertPos, 0, newItem);
-        await dbUser.save();
-
-        safeSendResponse(req, res, 200, { message: 'Товар в корзине успешно восстановлен' });
+        safeSendResponse(req, res, 200, { message: `Товар ${prodLbl} успешно восстановлен в корзине` });
     } catch (err) {
+        if (err.isAppError) {
+            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+        }
+
         next(err);
     }
 };
@@ -172,10 +203,16 @@ export const handleCartWarningsFixRequest = async (req, res, next) => {
     const dbUser = req.dbUser;
 
     try {
-        const { fixedDbCart, purchaseProductList, cartItemList } = await prepareFixedDbCart(dbUser.cart);
+        const { purchaseProductList, cartItemList } = await runInTransaction(async (session) => {
+            const { fixedDbCart, purchaseProductList, cartItemList } = await prepareFixedDbCart(dbUser.cart);
+            checkTimeout(req);
 
-        dbUser.cart = fixedDbCart;
-        await dbUser.save();
+            dbUser.cart = fixedDbCart;
+            await dbUser.save({ session });
+            checkTimeout(req);
+
+            return { purchaseProductList, cartItemList };
+        });
 
         safeSendResponse(req, res, 200, {
             message: 'Проблемные товары в корзине успешно исправлены',
@@ -198,10 +235,13 @@ export const handleCartItemRemoveRequest = async (req, res, next) => {
     }
 
     try {
-        dbUser.cart = dbUser.cart.filter(item => !item.productId.equals(productId));
-        await dbUser.save();
+        await runInTransaction(async (session) => {
+            dbUser.cart = dbUser.cart.filter(item => !item.productId.equals(productId));
+            await dbUser.save({ session });
+            checkTimeout(req);
+        });
 
-        safeSendResponse(req, res, 200, { message: 'Товар удалён из корзины' });
+        safeSendResponse(req, res, 200, { message: `Товар ${productId} удалён из корзины` });
     } catch (err) {
         next(err);
     }
@@ -212,8 +252,11 @@ export const handleCartClearRequest = async (req, res, next) => {
     const dbUser = req.dbUser;
 
     try {
-        dbUser.cart = [];
-        await dbUser.save();
+        await runInTransaction(async (session) => {
+            dbUser.cart = [];
+            await dbUser.save({ session });
+            checkTimeout(req);
+        });
 
         safeSendResponse(req, res, 200, { message: 'Корзина успешно очищена' });
     } catch (err) {

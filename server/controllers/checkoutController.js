@@ -51,6 +51,7 @@ export const handleOrderDraftRequest = async (req, res, next) => {
 
         const { statusCode, responseData } = await runInTransaction(async (session) => {
             const dbOrderDraft = await Order.findById(orderId).session(session);
+            checkTimeout(req);
 
             if (!dbOrderDraft) {
                 throw createAppError(404, `Черновик заказа ${orderLbl} не найден`);
@@ -69,7 +70,10 @@ export const handleOrderDraftRequest = async (req, res, next) => {
             // Заказ просрочен => освобождение резервов и удаление заказа
             if (new Date() >= new Date(dbOrderDraft.expiresAt)) {
                 await releaseReservedProducts(dbOrderDraft.items, session);
+                checkTimeout(req);
+
                 await dbOrderDraft.deleteOne({ session });
+                checkTimeout(req);
 
                 return {
                     statusCode: 404,
@@ -80,7 +84,10 @@ export const handleOrderDraftRequest = async (req, res, next) => {
             // Товары в корзине и в заказе отличаются => освобождение резервов и удаление заказа
             if (isCartDifferentFromOrder(dbUser.cart, dbOrderDraft.items)) {
                 await releaseReservedProducts(dbOrderDraft.items, session);
+                checkTimeout(req);
+
                 await dbOrderDraft.deleteOne({ session });
+                checkTimeout(req);
 
                 return {
                     statusCode: 409,
@@ -98,6 +105,7 @@ export const handleOrderDraftRequest = async (req, res, next) => {
                 purchaseProductList,
                 cartItemList
             } = await syncDraftOrderData(dbOrderDraft.items, customerDiscount);
+            checkTimeout(req);
 
             const orderTotals = calculateOrderTotals(fixedDbOrderItems);
             const isTotalAmountUnderMinimum = orderTotals.totalAmount < MIN_ORDER_AMOUNT;
@@ -107,6 +115,7 @@ export const handleOrderDraftRequest = async (req, res, next) => {
                 // Обновление корзины клиента перед выходом
                 dbUser.cart = fixedDbCart;
                 await dbUser.save({ session });
+                checkTimeout(req);
                 
                 // Сумма заказа НЕ меньше минимальной => обработка изменений в черновике заказа
                 if (!isTotalAmountUnderMinimum) {
@@ -117,19 +126,24 @@ export const handleOrderDraftRequest = async (req, res, next) => {
 
                     if (reservedOrderItemList.length > 0) {
                         await releaseReservedProducts(reservedOrderItemList, session);
+                        checkTimeout(req);
                     }
 
                     // Обновление черновика заказа с последующим выходом
                     dbOrderDraft.items = fixedDbOrderItems;
                     dbOrderDraft.totals = orderTotals;
                     await dbOrderDraft.save({ session });
+                    checkTimeout(req);
                 }
             }
 
             // Сумма заказа меньше минимальной => освобождение резервов и удаление заказа
             if (isTotalAmountUnderMinimum) {
                 await releaseReservedProducts(dbOrderDraft.items, session);
+                checkTimeout(req);
+
                 await dbOrderDraft.deleteOne({ session });
+                checkTimeout(req);
 
                 return {
                     statusCode: 422,
@@ -227,11 +241,15 @@ export const handleOrderDraftCreateRequest = async (req, res, next) => {
             const existingOrderDrafts = await Order
                 .find({ customerId, currentStatus: ORDER_STATUS.DRAFT })
                 .session(session);
+            checkTimeout(req);
 
             if (existingOrderDrafts.length) {
                 const reservedOrderItemList = existingOrderDrafts.flatMap(order => order.items);
                 await releaseReservedProducts(reservedOrderItemList, session);
+                checkTimeout(req);
+
                 await Order.deleteMany({ customerId, currentStatus: ORDER_STATUS.DRAFT }).session(session);
+                checkTimeout(req);
             }
         });
     } catch (err) {
@@ -253,6 +271,7 @@ export const handleOrderDraftCreateRequest = async (req, res, next) => {
                 purchaseProductList,
                 cartItemList
             } = await prepareDraftOrderData(dbUser.cart, cartProductSnapshotMap, customerDiscount);
+            checkTimeout(req);
 
             // Проверка итоговой суммы
             let orderTotals = calculateOrderTotals(fixedDbOrderItems);
@@ -263,6 +282,7 @@ export const handleOrderDraftCreateRequest = async (req, res, next) => {
                 if (orderAdjustments.length > 0) {
                     dbUser.cart = fixedDbCart;
                     await dbUser.save({ session });
+                    checkTimeout(req);
                 }
 
                 return {
@@ -285,11 +305,13 @@ export const handleOrderDraftCreateRequest = async (req, res, next) => {
 
             while (remainingOrderItemsToReserve.length) {
                 const failedItemIdsSet = await reserveProducts(remainingOrderItemsToReserve, session);
+                checkTimeout(req);
 
                 // Выход из цикла, если все товары зарезервированы
                 if (!failedItemIdsSet.size) break;
 
                 await new Promise(resolve => setTimeout(resolve, 750));
+                checkTimeout(req);
 
                 // Не все товары зарезервированы => Повтор сбора данных, проверки суммы и резервирования
                 const failedOrderItems = remainingOrderItemsToReserve
@@ -303,6 +325,7 @@ export const handleOrderDraftCreateRequest = async (req, res, next) => {
                     purchaseProductList: failedPurchaseProductList,
                     cartItemList: failedCartItemList
                 } = await prepareDraftOrderData(failedOrderItems, cartProductSnapshotMap, customerDiscount);
+                checkTimeout(req);
 
                 // Замена в массивах проблемных товаров
                 fixedDbCart = replaceListItemsByKey(fixedDbCart, failedFixedDbCart, 'productId');
@@ -324,6 +347,7 @@ export const handleOrderDraftCreateRequest = async (req, res, next) => {
                     if (orderAdjustments.length > 0) {
                         dbUser.cart = fixedDbCart;
                         await dbUser.save({ session });
+                        checkTimeout(req);
                     }
 
                     return {
@@ -349,6 +373,7 @@ export const handleOrderDraftCreateRequest = async (req, res, next) => {
             if (orderAdjustments.length > 0) {
                 dbUser.cart = fixedDbCart;
                 await dbUser.save({ session });
+                checkTimeout(req);
             }
 
             // Создание черновика заказа
@@ -376,6 +401,8 @@ export const handleOrderDraftCreateRequest = async (req, res, next) => {
                 ],
                 { session }
             );
+            checkTimeout(req);
+
             const orderId = orderDraft._id.toString();
 
             return {
@@ -457,33 +484,39 @@ export const handleOrderDraftUpdateRequest = async (req, res, next) => {
     try {
         const orderLbl = `(ID: ${orderId})`;
 
-        // Поиск черновика, полностью удовлетворяющего условиям
-        const dbOrderDraft = await Order.findOne({
-            _id: orderId,
-            customerId: dbUser._id,
-            currentStatus: ORDER_STATUS.DRAFT,
-            expiresAt: { $gt: new Date() }
+        await runInTransaction(async (session) => {
+            // Поиск черновика, полностью удовлетворяющего условиям
+            const dbOrderDraft = await Order.findOne({
+                _id: orderId,
+                customerId: dbUser._id,
+                currentStatus: ORDER_STATUS.DRAFT,
+                expiresAt: { $gt: new Date() }
+            }).session(session);
+            checkTimeout(req);
+            
+            if (!dbOrderDraft) {
+                throw createAppError(404, `Черновик заказа ${orderLbl} не найден или просрочен`);
+            }
+
+            // Объединение нормализованных изменённых полей с существующими через дот-нотацию в их названиях
+            const currentOrderDraft = dbOrderDraft.toObject();
+            const normalizedUpdateFields = normalizeInputDataToNull(updateFields);
+            const newOrderDraftData = dotNotationToObject(normalizedUpdateFields);
+            const mergedOrderDraft = deepMergeNewNullable(currentOrderDraft, newOrderDraftData);
+
+            // Проверка на изменение полей не нужна
+            // Установка через set и сохранение через save для удаления null-полей и пустых объектов
+            dbOrderDraft.set(mergedOrderDraft);
+            await dbOrderDraft.save({ session });
+            checkTimeout(req);
         });
-          
-        if (!dbOrderDraft) {
-            return safeSendResponse(req, res, 404, {
-                message: `Черновик заказа ${orderLbl} не найден или просрочен`
-            });
-        }
-
-        // Объединение нормализованных изменённых полей с существующими через дот-нотацию в их названиях
-        const currentOrderDraft = dbOrderDraft.toObject();
-        const normalizedUpdateFields = normalizeInputDataToNull(updateFields);
-        const newOrderDraftData = dotNotationToObject(normalizedUpdateFields);
-        const mergedOrderDraft = deepMergeNewNullable(currentOrderDraft, newOrderDraftData);
-
-        // Проверка на изменение полей не нужна
-        // Установка через set и сохранение через save для удаления null-полей и пустых объектов
-        dbOrderDraft.set(mergedOrderDraft);
-        await dbOrderDraft.save();
 
         safeSendResponse(req, res, 200, { message: `Черновик заказа ${orderLbl} обновлён` });
     } catch (err) {
+        if (err.isAppError) {
+            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+        }
+
         next(err);
     }
 };
@@ -550,6 +583,7 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
         
         const { statusCode, responseData } = await runInTransaction(async (session) => {
             const dbOrderDraft = await Order.findById(orderId).session(session);
+            checkTimeout(req);
 
             if (!dbOrderDraft) {
                 throw createAppError(404, `Черновик заказа ${orderLbl} не найден`);
@@ -568,7 +602,10 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
             // Заказ просрочен => освобождение резервов и удаление заказа
             if (new Date() >= new Date(dbOrderDraft.expiresAt)) {
                 await releaseReservedProducts(dbOrderDraft.items, session);
+                checkTimeout(req);
+
                 await dbOrderDraft.deleteOne({ session });
+                checkTimeout(req);
 
                 return {
                     statusCode: 404,
@@ -579,7 +616,10 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
             // Товары в корзине и в заказе отличаются => освобождение резервов и удаление заказа
             if (isCartDifferentFromOrder(dbUser.cart, dbOrderDraft.items)) {
                 await releaseReservedProducts(dbOrderDraft.items, session);
+                checkTimeout(req);
+
                 await dbOrderDraft.deleteOne({ session });
+                checkTimeout(req);
 
                 return {
                     statusCode: 409,
@@ -597,6 +637,7 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
                 purchaseProductList,
                 cartItemList
             } = await syncDraftOrderData(dbOrderDraft.items, customerDiscount);
+            checkTimeout(req);
 
             const orderTotals = calculateOrderTotals(fixedDbOrderItems);
             const isTotalAmountUnderMinimum = orderTotals.totalAmount < MIN_ORDER_AMOUNT;
@@ -606,6 +647,7 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
                 // Обновление корзины клиента перед выходом
                 dbUser.cart = fixedDbCart;
                 await dbUser.save({ session });
+                checkTimeout(req);
                 
                 // Сумма заказа НЕ меньше минимальной => обработка изменений в черновике заказа и выход
                 if (!isTotalAmountUnderMinimum) {
@@ -616,12 +658,14 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
 
                     if (reservedOrderItemList.length > 0) {
                         await releaseReservedProducts(reservedOrderItemList, session);
+                        checkTimeout(req);
                     }
 
                     // Обновление черновика заказа с последующим выходом
                     dbOrderDraft.items = fixedDbOrderItems;
                     dbOrderDraft.totals = orderTotals;
                     await dbOrderDraft.save({ session });
+                    checkTimeout(req);
 
                     return {
                         statusCode: 412,
@@ -644,7 +688,10 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
             // Сумма заказа меньше минимальной => освобождение резервов и удаление заказа
             if (isTotalAmountUnderMinimum) {
                 await releaseReservedProducts(dbOrderDraft.items, session);
+                checkTimeout(req);
+
                 await dbOrderDraft.deleteOne({ session });
+                checkTimeout(req);
 
                 return {
                     statusCode: 422,
@@ -692,6 +739,7 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
 
             // Предварительная валидация до работы с файловой системой и создания номера заказа
             await confirmedOrderDoc.validate({ pathsToSkip: ['orderNumber', 'items', 'confirmedAt'] });
+            checkTimeout(req);
 
             // Подготовка списка товаров подтверждённого заказа
             confirmedOrderId = confirmedOrderDoc._id.toString();
@@ -737,6 +785,7 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
 
             // Сохранение (копирование) файлов миниатюр товара для заказа
             await storageService.saveOrderItemsImages(confirmedOrderId, confirmedOrderItems, req);
+            checkTimeout(req);
 
             // Получение документа с новым номером заказа (без session: счётчик откатывать нельзя!)
             const dbCounter = await Counter.findOneAndUpdate(
@@ -744,6 +793,8 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
                 { $inc: { seq: 1 } },
                 { new: true, upsert: true } // upsert (update + insert) создаёт документ, если его ещё нет
             );
+            checkTimeout(req);
+
             const newOrderNumber = dbCounter.seq.toString().padStart(5, '0');
 
             // Установка номера, списка, статусов и дат
@@ -761,16 +812,20 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
 
             // Сохранение документа подтверждённого заказа
             await confirmedOrderDoc.save({ session });
+            checkTimeout(req);
 
             // Удаление документа черновика заказа
             await dbOrderDraft.deleteOne({ session });
+            checkTimeout(req);
 
             // Списание резервов товаров в заказе
             await commitProductPurchase(confirmedOrderDoc.items, session);
+            checkTimeout(req);
 
             // Очистка корзины клиента
             dbUser.cart = [];
             await dbUser.save({ session });
+            checkTimeout(req);
 
             return {
                 statusCode: 200,
@@ -785,7 +840,7 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
         safeSendResponse(req, res, statusCode, responseData);
     } catch (err) {
         // Очистка файлов миниатюр товаров в заказе (безопасно)
-        await storageService.cleanupOrderFiles(confirmedOrderId, reqCtx);
+        storageService.cleanupOrderFiles(confirmedOrderId, reqCtx);
 
         // Обработка контролируемой ошибки
         if (err.isAppError) {
@@ -820,6 +875,7 @@ export const handleOrderDraftDeleteRequest = async (req, res, next) => {
 
         await runInTransaction(async (session) => {
             const dbOrderDraft = await Order.findById(orderId).session(session);
+            checkTimeout(req);
 
             if (!dbOrderDraft) {
                 throw createAppError(404, `Черновик заказа ${orderLbl} не найден`);
@@ -836,7 +892,10 @@ export const handleOrderDraftDeleteRequest = async (req, res, next) => {
             }
 
             await releaseReservedProducts(dbOrderDraft.items, session);
+            checkTimeout(req);
+
             await dbOrderDraft.deleteOne({ session });
+            checkTimeout(req);
         });
 
         safeSendResponse(req, res, 200, { message: `Черновик заказа ${orderLbl} успешно удалён` });

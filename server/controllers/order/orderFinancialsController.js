@@ -1,5 +1,6 @@
 import Order from '../../database/models/Order.js';
 import { getCustomerOrderDetailsUrl } from '../../config/urls.js';
+import { checkTimeout } from '../../middlewares/timeoutMiddleware.js';
 import * as sseOrderManagement from '../../services/sse/sseOrderManagementService.js';
 import {
     orderDotNotationMap,
@@ -57,6 +58,8 @@ export const handleOrderInvoicePdfRequest = async (req, res, next) => {
 
     try {
         const dbOrder = await Order.findById(orderId).lean();
+        checkTimeout(req);
+
         const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
         
         if (!dbOrder) {
@@ -95,6 +98,8 @@ export const handleOrderRemainingAmountRequest = async (req, res, next) => {
 
     try {
         const dbOrder = await Order.findById(orderId).lean();
+        checkTimeout(req);
+
         const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
         
         if (!dbOrder) {
@@ -113,7 +118,7 @@ export const handleOrderRemainingAmountRequest = async (req, res, next) => {
         const financials = calculateOrderFinancials(dbOrder.financials.eventHistory);
         const netPaid = financials.totalPaid - financials.totalRefunded;
         const totalAmount = dbOrder.totals.totalAmount;
-        const remainingAmount = totalAmount - netPaid;
+        const remainingAmount = Number((totalAmount - netPaid).toFixed(2));
 
         safeSendResponse(req, res, 200, {
             message: `Остаток для оплаты заказа ${orderLbl} успешно вычислен`,
@@ -127,6 +132,7 @@ export const handleOrderRemainingAmountRequest = async (req, res, next) => {
 
 /// Аннулирование записи успешного финансового оффлайн-события в заказе (SSE у клиента) ///
 export const handleOrderFinancialsEventVoidRequest = async (req, res, next) => {
+    const reqCtx = req.reqCtx;
     const dbUser = req.dbUser;
 
     // Предварительная проверка формата данных
@@ -155,6 +161,8 @@ export const handleOrderFinancialsEventVoidRequest = async (req, res, next) => {
         const { orderLbl, eventLbl, updatedOrderData } = await runInTransaction(async (session) => {
             // Поиск заказа и проверка его состояния
             const dbOrder = await Order.findById(orderId).session(session);
+            checkTimeout(req);
+
             const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
 
             if (!dbOrder) {
@@ -265,11 +273,13 @@ export const handleOrderFinancialsEventVoidRequest = async (req, res, next) => {
 
             // Сохранение обновлённого заказа со всеми изменениями
             const updatedDbOrder = await dbOrder.save({ session });
+            checkTimeout(req);
 
             // Обновление общей суммы оплат покупателя при завершении заказа
             if (updatedDbOrder.currentStatus === ORDER_STATUS.COMPLETED) {
                 const netPaidDelta = newNetPaid - oldNetPaid;
-                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaidDelta, session, req.reqCtx);
+                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaidDelta, session, reqCtx);
+                checkTimeout(req);
             }
 
             // Формирование данных для SSE-сообщения
@@ -310,6 +320,7 @@ export const handleOrderFinancialsEventVoidRequest = async (req, res, next) => {
 
 /// Внесение оплаты за заказ оффлайн-методом (SSE у клиента) ///
 export const handleOrderOfflinePaymentApplyRequest = async (req, res, next) => {
+    const reqCtx = req.reqCtx;
     const dbUser = req.dbUser;
     const orderId = req.params.orderId;
     const { transaction } = req.body ?? {};
@@ -375,6 +386,8 @@ export const handleOrderOfflinePaymentApplyRequest = async (req, res, next) => {
         const { orderLbl, updatedOrderData } = await runInTransaction(async (session) => {
             // Поиск заказа и проверка его состояния
             const dbOrder = await Order.findById(orderId).session(session);
+            checkTimeout(req);
+
             const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
 
             if (!dbOrder) {
@@ -438,11 +451,13 @@ export const handleOrderOfflinePaymentApplyRequest = async (req, res, next) => {
 
             // Сохранение обновлённого заказа
             const updatedDbOrder = await dbOrder.save({ session });
+            checkTimeout(req);
 
             // Обновление общей суммы оплат покупателя, если заказ уже завершён
             if (!markAsFailed && currentOrderStatus === ORDER_STATUS.COMPLETED) {
                 const netPaidDelta = newNetPaid - netPaid;
-                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaidDelta, session, req.reqCtx);
+                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaidDelta, session, reqCtx);
+                checkTimeout(req);
             }
 
             // Формирование данных для SSE-сообщения
@@ -483,6 +498,7 @@ export const handleOrderOfflinePaymentApplyRequest = async (req, res, next) => {
 
 /// Возврат средств за заказ оффлайн-методом (SSE у клиента) ///
 export const handleOrderOfflineRefundApplyRequest = async (req, res, next) => {
+    const reqCtx = req.reqCtx;
     const dbUser = req.dbUser;
     const orderId = req.params.orderId;
     const { transaction } = req.body ?? {};
@@ -550,6 +566,8 @@ export const handleOrderOfflineRefundApplyRequest = async (req, res, next) => {
         const { orderLbl, updatedOrderData } = await runInTransaction(async (session) => {
             // Поиск заказа и проверка его состояния
             const dbOrder = await Order.findById(orderId).session(session);
+            checkTimeout(req);
+
             const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
 
             if (!dbOrder) {
@@ -608,11 +626,13 @@ export const handleOrderOfflineRefundApplyRequest = async (req, res, next) => {
 
             // Сохранение обновлённого заказа
             const updatedDbOrder = await dbOrder.save({ session });
+            checkTimeout(req);
 
             // Обновление общей суммы оплат покупателя, если заказ уже завершён
             if (!markAsFailed && currentOrderStatus === ORDER_STATUS.COMPLETED) {
                 const netPaidDelta = newNetPaid - netPaid;
-                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaidDelta, session, req.reqCtx);
+                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaidDelta, session, reqCtx);
+                checkTimeout(req);
             }
 
             // Формирование данных для SSE-сообщения
@@ -700,6 +720,8 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
     try {
         // Поиск заказа и проверка его состояния
         const dbOrder = await Order.findById(orderId);
+        checkTimeout(req);
+
         const orderNumber = dbOrder?.orderNumber;
         const orderLbl = orderNumber ? `№${orderNumber}` : `(ID: ${orderId})`;
 
@@ -758,7 +780,7 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
             });
         }
 
-        // Атомарный апдейт заказа со статусом ожидания создания платежа через YooKassa
+        // Атомарный апдейт заказа со статусом ожидания создания платежа
         let updatedDbOrder = await Order.findOneAndUpdate(
             {
                 _id: orderId,
@@ -783,7 +805,7 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
             return safeSendResponse(req, res, 409, { message: `Конфликт состояния заказа ${orderLbl}` });
         }
 
-        // Формирование и отправка SSE-сообщения с созданными данными по онлайн-транзакции в заказе
+        // Формирование и отправка SSE-сообщения с созданием онлайн-транзакции (до проверки таймаута)
         const orderPatches = [
             {
                 path: orderDotNotationMap.currentOnlineTransaction,
@@ -794,6 +816,9 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
 
         const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };
         sseOrderManagement.sendToAllClients(sseMessageData);
+
+        // Проверка таймаута после SSE-сообщения
+        checkTimeout(req);
 
         // Создание онлайн-платежа
         const paymentResult = await createOnlinePayment(provider, {
@@ -807,6 +832,7 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
             customerId: updatedDbOrder.customerId.toString(),
             provider
         });
+        checkTimeout(req);
 
         // Обработка ошибки создания онлайн-оплаты
         if (paymentResult.error) {
@@ -816,7 +842,7 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
             const clearedTransactionCount =
                 await clearOrderOnlineTransaction(orderId, ONLINE_TRANSACTION_STATUS.INIT);
 
-            // Формирование и отправка SSE-сообщения с удалёнными данными по онлайн-транзакции
+            // Формирование и отправка SSE-сообщения с удалённой онлайн-транзакцией (до проверки таймаута)
             if (clearedTransactionCount > 0) {
                 const orderPatches = [{
                     path: orderDotNotationMap.currentOnlineTransaction,
@@ -827,6 +853,9 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
                 const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };
                 sseOrderManagement.sendToAllClients(sseMessageData);
             }
+
+            // Проверка таймаута после SSE-сообщения
+            checkTimeout(req);
 
             return safeSendResponse(req, res, 500, {
                 message: `По заказу ${orderLbl} онлайн оплата не создана`
@@ -852,7 +881,7 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
             { new: true }
         );
 
-        // Формирование и отправка SSE-сообщения с обновлёнными данными по онлайн-транзакции в заказе
+        // Формирование и отправка SSE-сообщения с обновлением онлайн-транзакции (до проверки таймаута)
         if (updatedDbOrder) {
             const orderPatches = [
                 {
@@ -865,6 +894,9 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
             const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };
             sseOrderManagement.sendToAllClients(sseMessageData);
         }
+
+        // Проверка таймаута после SSE-сообщения
+        checkTimeout(req);
 
         // Отправка ответа клиенту
         safeSendResponse(req, res, 200, {
@@ -887,6 +919,8 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
     try {
         // Поиск заказа и проверка его состояния
         const dbOrder = await Order.findById(orderId);
+        checkTimeout(req);
+
         const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
 
         if (!dbOrder) {
@@ -962,7 +996,7 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
             });
         }
 
-        // Атомарный апдейт заказа со статусом подготовки создания онлайн-транзакции
+        // Атомарный апдейт заказа со статусом ожидания создания возвратов (до проверки таймаута)
         let updatedDbOrder = await Order.findOneAndUpdate(
             {
                 _id: orderId,
@@ -987,7 +1021,7 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
             return safeSendResponse(req, res, 409, { message: `Конфликт состояния заказа ${orderLbl}` });
         }
 
-        // Формирование и отправка SSE-сообщения с созданными данными по онлайн-транзакции в заказе
+        // Формирование и отправка SSE-сообщения с созданием онлайн-транзакции (до проверки таймаута)
         const orderPatches = [
             {
                 path: orderDotNotationMap.currentOnlineTransaction,
@@ -998,6 +1032,9 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
 
         const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };
         sseOrderManagement.sendToAllClients(sseMessageData);
+
+        // Проверка таймаута после SSE-сообщения
+        checkTimeout(req);
 
         // Группирование заданий по провайдерам
         const refundTasksByProvider = new Map(); // provider => [task, ...]
@@ -1032,6 +1069,7 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
                     reason instanceof Error ? reason : { errorDetails: reason }
                 );
             });
+            checkTimeout(req);
         }
         
         // Обработка ситуации, когда не создалось ни одного успешного возврата
@@ -1040,7 +1078,7 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
             const clearedTransactionCount =
                 await clearOrderOnlineTransaction(orderId, ONLINE_TRANSACTION_STATUS.INIT);
 
-            // Формирование и отправка SSE-сообщения с удалёнными данными по онлайн-транзакции
+            // Формирование и отправка SSE-сообщения с удалённой онлайн-транзакцией (до проверки таймаута)
             if (clearedTransactionCount > 0) {
                 const orderPatches = [{
                     path: orderDotNotationMap.currentOnlineTransaction,
@@ -1051,6 +1089,9 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
                 const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };
                 sseOrderManagement.sendToAllClients(sseMessageData);
             }
+
+            // Проверка таймаута после SSE-сообщения
+            checkTimeout(req);
 
             return safeSendResponse(req, res, 500, {
                 message: `По заказу ${orderLbl} не создано ни одного возврата`
@@ -1073,7 +1114,7 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
             { new: true }
         );
 
-        // Формирование и отправка SSE-сообщения с обновлёнными данными по онлайн-транзакции
+        // Формирование и отправка SSE-сообщения с обновлением онлайн-транзакции (до проверки таймаута)
         if (updatedDbOrder) {
             const orderPatches = [
                 {
@@ -1087,6 +1128,9 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
             sseOrderManagement.sendToAllClients(sseMessageData);
         }
 
+        // Проверка таймаута после SSE-сообщения
+        checkTimeout(req);
+
         // Отправка ответа клиенту
         safeSendResponse(req, res, 200, {
             message: `Автовозврат средств по заказу ${orderLbl} на карты онлайн обрабатывается`
@@ -1098,6 +1142,8 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
 
 /// Обработка уведомления (вебхука) от онлайн-провайдера (банковская карта) ///
 export const handleWebhook = async (req, res, next) => {
+    const reqCtx = req.reqCtx;
+
     // Определение провайдера по заголовку
     const provider = detectWebhookProvider(req);
 
@@ -1124,7 +1170,7 @@ export const handleWebhook = async (req, res, next) => {
         orderId, transactionId, amount, transactionType,
         originalPaymentId, markAsFailed, failureReason, createdAt
     } = normalizedWebhook;
-    const logContext = `${req.reqCtx} [WEBHOOK ${provider.toUpperCase()}]`;
+    const logContext = `${reqCtx} [WEBHOOK ${provider.toUpperCase()}]`;
 
     if (
         !typeCheck.objectId(orderId) ||
@@ -1145,6 +1191,8 @@ export const handleWebhook = async (req, res, next) => {
         const { updatedOrderData } = await runInTransaction(async (session) => {
             // Поиск заказа и проверка его состояния
             const dbOrder = await Order.findById(orderId).session(session);
+            checkTimeout(req);
+
             const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
 
             if (!dbOrder) {
@@ -1226,12 +1274,14 @@ export const handleWebhook = async (req, res, next) => {
 
             // Сохранение обновлённого заказа
             const updatedDbOrder = await dbOrder.save({ session });
+            checkTimeout(req);
 
             // Обновление общей суммы оплат покупателя, если заказ уже завершён
             if (!markAsFailed && currentOrderStatus === ORDER_STATUS.COMPLETED) {
                 const netPaid = financials.totalPaid - financials.totalRefunded;
                 const netPaidDelta = newNetPaid - netPaid;
-                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaidDelta, session, req.reqCtx);
+                await updateCustomerTotalSpent(updatedDbOrder.customerId, netPaidDelta, session, reqCtx);
+                checkTimeout(req);
             }
 
             // Формирование данных для SSE-сообщения

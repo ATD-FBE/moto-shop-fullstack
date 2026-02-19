@@ -3,6 +3,7 @@ import { checkTimeout } from '../middlewares/timeoutMiddleware.js';
 import { preparePromoData } from '../services/promoService.js';
 import { storageService } from '../services/storage/storageService.js';
 import { typeCheck, validateInputTypes } from '../utils/typeValidation.js';
+import { runInTransaction } from '../utils/transaction.js';
 import { createAppError, prepareAppErrorData } from '../utils/errorUtils.js';
 import { parseValidationErrors } from '../utils/errorUtils.js';
 import safeSendResponse from '../utils/safeSendResponse.js';
@@ -47,6 +48,8 @@ export const handlePromoListRequest = async (req, res, next) => {
         }
 
         const dbPromoList = await dbPromoQuery.lean(); // Преобразование в обычный JS-объект
+        checkTimeout(req);
+
         const promoList = dbPromoList.map(promo => preparePromoData(promo, { managed: isAdmin }));
 
         safeSendResponse(req, res, 200, { message: 'Акции успешно загружены', promoList });
@@ -67,6 +70,7 @@ export const handlePromoRequest = async (req, res, next) => {
         const dbPromo = await Promo.findById(promoId)
             .select('title imageFilename description startDate endDate')
             .lean();
+        checkTimeout(req);
 
         if (!dbPromo) {
             return safeSendResponse(req, res, 404, { message: `Акция (ID: ${promoId}) не найдена` });
@@ -88,82 +92,85 @@ export const handlePromoCreateRequest = async (req, res, next) => {
     const { file: image, fileUploadError } = req; // Проверено в multer
     const { title, description, startDate, endDate } = req.body ?? {};
 
+    // Предварительная проверка формата данных
+    const inputTypeMap = {
+        image: { value: image, type: 'object', optional: true, form: true },
+        title: { value: title, type: 'string', form: true },
+        description: { value: description, type: 'string', form: true },
+        startDate: { value: startDate, type: 'date', form: true },
+        endDate: { value: endDate, type: 'date', form: true }
+    };
+
+    const { invalidInputKeys, fieldErrors } = validateInputTypes(inputTypeMap, 'promotion');
+
+    if (invalidInputKeys.length > 0) {
+        const invalidKeysStr = invalidInputKeys.join(', ');
+        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+    }
+    if (Object.keys(fieldErrors).length > 0) {
+        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+    }
+
     let newPromoId = null;
 
     // Создание документа в базе MongoDB
     try {
-        // Предварительная проверка формата данных
-        const inputTypeMap = {
-            image: { value: image, type: 'object', optional: true, form: true },
-            title: { value: title, type: 'string', form: true },
-            description: { value: description, type: 'string', form: true },
-            startDate: { value: startDate, type: 'date', form: true },
-            endDate: { value: endDate, type: 'date', form: true }
-        };
+        const { promoLbl } = await runInTransaction(async (session) => {
+            // Подготовка данных
+            const prepDbFields = {
+                title: title.trim(),
+                imageFilename: image?.filename,
+                description: description.trim()
+            };
 
-        const { invalidInputKeys, fieldErrors } = validateInputTypes(inputTypeMap, 'promotion');
+            const startDateUTC = new Date(startDate);
+            startDateUTC.setUTCHours(0, 0, 0, 0); // Возвращает таймстемп, startDateUTC остаётся объектом
+            prepDbFields.startDate = startDateUTC;
 
-        if (invalidInputKeys.length > 0) {
-            throw createAppError(400, `Неверный формат данных: ${invalidInputKeys.join(', ')}`);
-        }
-        if (Object.keys(fieldErrors).length > 0) {
-            throw createAppError(422, 'Неверный формат данных', { fieldErrors });
-        }
+            const endDateUTC = new Date(endDate);
+            endDateUTC.setUTCHours(23, 59, 59, 999); // Возвращает таймстемп, endDateUTC остаётся объектом
+            prepDbFields.endDate = endDateUTC;
 
-        // Подготовка данных
-        const prepDbFields = {
-            title: title.trim(),
-            description: description.trim()
-        };
+            // Предварительное создание документа для валидации до сохранения
+            const newPromoDoc = new Promo(prepDbFields);
 
-        const startDateUTC = new Date(startDate);
-        startDateUTC.setUTCHours(0, 0, 0, 0); // Возвращает таймстемп, startDateUTC остаётся объектом
-        prepDbFields.startDate = startDateUTC;
-        
-        const endDateUTC = new Date(endDate);
-        endDateUTC.setUTCHours(23, 59, 59, 999); // Возвращает таймстемп, endDateUTC остаётся объектом
-        prepDbFields.endDate = endDateUTC;
+            // Отметка поля фотографий невалидным при ошибке в multer
+            if (fileUploadError) {
+                const { field, type, message } = fileUploadError; // field = 'image' - поле из формы
+                newPromoDoc.invalidate(field, message);
+            }
 
-        // Предварительное создание документа для валидации до сохранения
-        const newPromoDoc = new Promo(prepDbFields);
+            // Отметка поля даты окончания акции невалидным, если оно раньше даты старта
+            if (endDateUTC < startDateUTC) {
+                newPromoDoc.invalidate('endDate', 'rangeError');
+            }
 
-        // Отметка поля фотографий невалидным при ошибке в multer
-        if (fileUploadError) {
-            const { field, type, message } = fileUploadError; // field = 'image' - поле из формы
-            newPromoDoc.invalidate(field, message);
-        }
+            // Предварительная валидация до работы с файловой системой
+            await newPromoDoc.validate();
+            checkTimeout(req);
 
-        // Отметка поля даты окончания акции невалидным, если оно раньше даты старта
-        if (endDateUTC < startDateUTC) {
-            newPromoDoc.invalidate('endDate', 'rangeError');
-        }
+            // Сохранение картинки акции в хранилище файлов и добавление URL картинки в БД
+            if (image) {
+                newPromoId = newPromoDoc._id.toString(); // ID создался при валидации
+                await storageService.savePromoImage(newPromoId, image);
+                checkTimeout(req);
+            }
 
-        // Предварительная валидация до работы с файловой системой
-        await newPromoDoc.validate({ pathsToSkip: ['imageFilename'] });
+            // Добавление лога создания и сохранение в базе MongoDB
+            newPromoDoc.createdBy = userId;
+            const newDbPromo = await newPromoDoc.save({ session });
+            checkTimeout(req);
 
-        // Сохранение картинки акции в хранилище файлов и добавление URL картинки в БД
-        if (image) {
-            newPromoId = newPromoDoc._id.toString(); // ID создался при валидации
-            await storageService.savePromoImage(newPromoId, image);
-            newPromoDoc.imageFilename = image.filename;
-        }
-
-        // Добавление лога создания и сохранение в базе MongoDB
-        newPromoDoc.createdBy = userId;
-        await newPromoDoc.save();
+            return { promoLbl: `"${newDbPromo.title}"` };
+        });
 
         // Отправка успешного ответа клиенту
-        safeSendResponse(req, res, 201, { message: `Акция "${newPromoDoc.title}" успешно создана` });
+        safeSendResponse(req, res, 201, { message: `Акция ${promoLbl} успешно создана` });
     } catch (err) {
         // Очистка файла картинки акции в хранилище (безопасно)
         if (image) {
-            await storageService.deleteTempFiles(image, reqCtx);
-            await storageService.cleanupPromoFiles(newPromoId, reqCtx);
-        }
-
-        // Обработка контролируемой ошибки
-        if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            storageService.deleteTempFiles(image, reqCtx);
+            storageService.cleanupPromoFiles(newPromoId, reqCtx);
         }
 
         // Обработка ошибок валидации полей
@@ -188,122 +195,139 @@ export const handlePromoUpdateRequest = async (req, res, next) => {
     const { file: image, fileUploadError } = req; // Проверено в multer
     const { title, description, startDate, endDate, removeImage } = req.body ?? {};
 
-    const imageFilename = image?.filename;
-    let hasCurrentImage = false;
+    // Предварительная проверка формата данных
+    const inputTypeMap = {
+        promoId: { value: promoId, type: 'objectId' },
+        image: { value: image, type: 'object', optional: true, form: true },
+        title: { value: title, type: 'string', form: true },
+        description: { value: description, type: 'string', form: true },
+        startDate: { value: startDate, type: 'date', form: true },
+        endDate: { value: endDate, type: 'date', form: true },
+        removeImage: { value: removeImage, type: 'boolean', optional: true }
+    };
+
+    const { invalidInputKeys, fieldErrors } = validateInputTypes(inputTypeMap, 'promotion');
+
+    if (invalidInputKeys.length > 0) {
+        const invalidKeysStr = invalidInputKeys.join(', ');
+        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+    }
+    if (Object.keys(fieldErrors).length > 0) {
+        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+    }
+
+    const shouldRemoveImage = removeImage === 'true';
+    const newImageFilename = image?.filename;
+    let rollbackCleanupFiles = false;
 
     // Апдейт документа в базе MongoDB
     try {
-        // Предварительная проверка формата данных
-        const inputTypeMap = {
-            promoId: { value: promoId, type: 'objectId' },
-            image: { value: image, type: 'object', optional: true, form: true },
-            title: { value: title, type: 'string', form: true },
-            description: { value: description, type: 'string', form: true },
-            startDate: { value: startDate, type: 'date', form: true },
-            endDate: { value: endDate, type: 'date', form: true },
-            removeImage: { value: removeImage, type: 'boolean', optional: true }
-        };
-        
+        const { promoLbl, postUpdateFileCleanup } = await runInTransaction(async (session) => {
+            // Проверка на существование изменяемой акции
+            const dbPromo = await Promo.findById(promoId).session(session);
+            checkTimeout(req);
 
-        const { invalidInputKeys, fieldErrors } = validateInputTypes(inputTypeMap, 'promotion');
-
-        if (invalidInputKeys.length > 0) {
-            throw createAppError(400, `Неверный формат данных: ${invalidInputKeys.join(', ')}`);
-        }
-        if (Object.keys(fieldErrors).length > 0) {
-            throw createAppError(422, 'Неверный формат данных', { fieldErrors });
-        }
-
-        // Проверка на существование изменяемой акции
-        const dbPromo = await Promo.findById(promoId);
-        
-        if (!dbPromo) {
-            throw createAppError(404, `Акция (ID: ${promoId}) не найдена`);
-        }
-
-        const currentTitle = dbPromo.title;
-        const currentImageFilename = dbPromo.imageFilename;
-        hasCurrentImage = Boolean(currentImageFilename);
-        const shouldRemoveImage = removeImage === 'true';
-    
-        // Проверка на согласованность флага удаления старого файла картинки и нового файла
-        if (
-            (hasCurrentImage && image && !shouldRemoveImage) ||
-            (shouldRemoveImage && !hasCurrentImage)
-        ) {
-            throw createAppError(400, 'Несогласованные данные для изображения акции');
-        }
-
-        // Подготовка данных
-        const prepDbFields = {
-            title: title.trim(),
-            description: description.trim()
-        };
-
-        const newImageFilename = hasCurrentImage
-            ? shouldRemoveImage ? imageFilename : currentImageFilename
-            : imageFilename;
-        dbPromo.imageFilename = newImageFilename;
-
-        const startDateUTC = new Date(startDate);
-        startDateUTC.setUTCHours(0, 0, 0, 0); // Возвращает таймстемп, startDateUTC остаётся объектом
-        prepDbFields.startDate = startDateUTC;
-
-        const endDateUTC = new Date(endDate);
-        endDateUTC.setUTCHours(23, 59, 59, 999); // Возвращает таймстемп, endDateUTC остаётся объектом
-        prepDbFields.endDate = endDateUTC;
-
-        // Установка новых данных и проверка их изменений
-        dbPromo.set(prepDbFields);
-        
-        // isModified() проверяет только новые данные. При fileUploadError данные могут совпасть
-        if (!dbPromo.isModified() && !fileUploadError) {
-            throw createAppError(204);
-        }
-
-        // Отметка поля фотографий невалидным при ошибке в multer
-        if (fileUploadError) {
-            const { field, message } = fileUploadError; // field = 'image' - поле из формы
-            dbPromo.invalidate(field, message);
-        }
-
-        // Отметка поля даты окончания акции невалидным, если оно раньше даты старта
-        if (endDateUTC < startDateUTC) {
-            dbPromo.invalidate('endDate', 'rangeError');
-        }
-
-        // Предварительная валидация до работы с файловой системой
-        await dbPromo.validate();
-
-        // Сохранение нового файла картинки в хранилище файлов, если есть
-        if (image) {
-            await storageService.savePromoImage(promoId, image);
-        }
-        
-        // Добавление лога редактирования и сохранение в базе MongoDB
-        dbPromo.updateHistory.push({ updatedBy: userId, updatedAt: new Date() });
-        await dbPromo.save();
-
-        // Удаление старого файла картинки или папки файлов акции (безопасно)
-        if (shouldRemoveImage) {
-            if (image) {
-                await storageService.deletePromoImage(promoId, currentImageFilename, reqCtx);
-            } else {
-                await storageService.cleanupPromoFiles(promoId, reqCtx);
+            const promoLbl = dbPromo ? `"${dbPromo.title}"` : `(ID: ${promoId})`;
+            
+            if (!dbPromo) {
+                throw createAppError(404, `Акция ${promoLbl} не найдена`);
             }
-        }
+
+            const oldImageFilename = dbPromo.imageFilename;
+            const hasImage = Boolean(oldImageFilename);
+            rollbackCleanupFiles = !hasImage;
+        
+            // Проверка на согласованность флага удаления старого файла картинки и нового файла
+            if (
+                (hasImage && image && !shouldRemoveImage) ||
+                (shouldRemoveImage && !hasImage)
+            ) {
+                throw createAppError(400, `Несогласованные данные для изображения акции ${promoLbl}`);
+            }
+
+            // Подготовка данных
+            const prepDbFields = {
+                title: title.trim(),
+                description: description.trim()
+            };
+
+            dbPromo.imageFilename = hasImage
+                ? shouldRemoveImage ? newImageFilename : oldImageFilename
+                : newImageFilename;
+
+            const startDateUTC = new Date(startDate);
+            startDateUTC.setUTCHours(0, 0, 0, 0); // Возвращает таймстемп, startDateUTC остаётся объектом
+            prepDbFields.startDate = startDateUTC;
+
+            const endDateUTC = new Date(endDate);
+            endDateUTC.setUTCHours(23, 59, 59, 999); // Возвращает таймстемп, endDateUTC остаётся объектом
+            prepDbFields.endDate = endDateUTC;
+
+            // Установка новых данных и проверка их изменений
+            dbPromo.set(prepDbFields);
+            
+            // isModified() проверяет только новые данные. При fileUploadError данные могут совпасть
+            if (!dbPromo.isModified() && !fileUploadError) {
+                throw createAppError(204);
+            }
+
+            // Отметка поля фотографий невалидным при ошибке в multer
+            if (fileUploadError) {
+                const { field, message } = fileUploadError; // field = 'image' - поле из формы
+                dbPromo.invalidate(field, message);
+            }
+
+            // Отметка поля даты окончания акции невалидным, если оно раньше даты старта
+            if (endDateUTC < startDateUTC) {
+                dbPromo.invalidate('endDate', 'rangeError');
+            }
+
+            // Предварительная валидация до работы с файловой системой
+            await dbPromo.validate();
+            checkTimeout(req);
+
+            // Сохранение нового файла картинки в хранилище файлов, если есть
+            if (image) {
+                await storageService.savePromoImage(promoId, image);
+                checkTimeout(req);
+            }
+            
+            // Добавление лога редактирования и сохранение в базе MongoDB
+            dbPromo.updateHistory.push({ updatedBy: userId, updatedAt: new Date() });
+            await dbPromo.save({ session });
+            checkTimeout(req);
+
+            // Подготовка данных для удаления файлов
+            const postUpdateFileCleanup = shouldRemoveImage
+                ? {
+                    filename: oldImageFilename,
+                    fullCleanup: !image
+                }
+                : null;
+
+            return { promoLbl, postUpdateFileCleanup };
+        });
 
         // Отправка успешного ответа клиенту
-        safeSendResponse(req, res, 200, { message: `Акция "${currentTitle}" успешно изменена` });
+        safeSendResponse(req, res, 200, { message: `Акция "${promoLbl}" успешно изменена` });
+
+        // Удаление старого файла картинки или папки файлов акции (безопасно)
+        if (postUpdateFileCleanup) {
+            if (postUpdateFileCleanup.fullCleanup) {
+                storageService.cleanupPromoFiles(promoId, reqCtx);
+            } else {
+                storageService.deletePromoImage(promoId, postUpdateFileCleanup.filename, reqCtx);
+            }
+        }
     } catch (err) {
         // Очистка нового файла картинки акции (безопасно)
         if (image) {
-            await storageService.deleteTempFiles(image, reqCtx);
+            storageService.deleteTempFiles(image, reqCtx);
 
-            if (hasCurrentImage) {
-                await storageService.deletePromoImage(promoId, imageFilename, reqCtx);
+            if (rollbackCleanupFiles) {
+                storageService.cleanupPromoFiles(promoId, reqCtx);
             } else {
-                await storageService.cleanupPromoFiles(promoId, reqCtx);
+                storageService.deletePromoImage(promoId, newImageFilename, reqCtx);
             }
         }
 
@@ -336,18 +360,28 @@ export const handlePromoDeleteRequest = async (req, res, next) => {
     }
 
     try {
-        // Поиск и удаление документа в базе MongoDB
-        const dbPromo = await Promo.findByIdAndDelete(promoId);
+        const { promoLbl } = await runInTransaction(async (session) => {
+            const dbPromo = await Promo.findByIdAndDelete(promoId).session(session);
+            checkTimeout(req);
 
-        if (!dbPromo) {
-            return safeSendResponse(req, res, 404, { message: `Акция (ID: ${promoId}) не найдена` });
+            const promoLbl = dbPromo ? `"${dbPromo.title}"` : `(ID: ${promoId})`;
+
+            if (!dbPromo) {
+                throw createAppError(404, `Акция (ID: ${promoId}) не найдена`);
+            }
+
+            return { promoLbl };
+        });
+
+        safeSendResponse(req, res, 200, { message: `Акция ${promoLbl} успешно удалена` });
+        storageService.cleanupPromoFiles(promoId, reqCtx);
+    } catch (err) {
+        if (err.isAppError) {
+            safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            if (err.statusCode === 404) storageService.cleanupPromoFiles(promoId, reqCtx);
+            return;
         }
 
-        // Удаление файла картинки акции, если она была
-        await storageService.cleanupPromoFiles(promoId, reqCtx);
-
-        safeSendResponse(req, res, 200, { message: `Акция "${dbPromo.title}" успешно удалена` });
-    } catch (err) {
         next(err);
     }
 };

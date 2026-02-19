@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Category from '../database/models/Category.js';
 import Product from '../database/models/Product.js';
+import { checkTimeout } from '../middlewares/timeoutMiddleware.js';
 import { typeCheck, validateInputTypes } from '../utils/typeValidation.js';
 import { runInTransaction } from '../utils/transaction.js';
 import { createAppError, prepareAppErrorData } from '../utils/errorUtils.js';
@@ -11,6 +12,8 @@ import safeSendResponse from '../utils/safeSendResponse.js';
 export const handleCategoryListRequest = async (req, res, next) => {
     try {
         const dbCategoryList = await Category.find().select('-__v').lean();
+        checkTimeout(req);
+
         const categoryList = dbCategoryList.map(({ _id, ...rest }) => ({ id: _id, ...rest }));
 
         safeSendResponse(req, res, 200, { message: 'Категории товаров успешно загружены', categoryList });
@@ -53,6 +56,7 @@ export const handleCategoryCreateRequest = async (req, res, next) => {
             // Проверка родительской категории
             if (parent !== null) {
                 const dbParentCategory = await Category.findById(parent).session(session);
+                checkTimeout(req);
 
                 if (!dbParentCategory) {
                     throw createAppError(404, `Родительская категория товаров (ID: ${parent}) отсутствует`);
@@ -67,6 +71,8 @@ export const handleCategoryCreateRequest = async (req, res, next) => {
 
             // Корректировка порядковых номеров создаваемой категории и её соседей (индексация от 0)
             const neighborCount = await Category.countDocuments({ parent }).session(session);
+            checkTimeout(req);
+
             const correctedOrder = Math.min(Math.max(0, orderNum), neighborCount);
 
             if (neighborCount && correctedOrder < neighborCount) {
@@ -75,6 +81,7 @@ export const handleCategoryCreateRequest = async (req, res, next) => {
                     { $inc: { order: 1 } }, // Инкремент поля order у найденных документов на 1
                     { session }
                 );
+                checkTimeout(req);
             }
 
             // Создание категории с корректированным номером
@@ -89,9 +96,11 @@ export const handleCategoryCreateRequest = async (req, res, next) => {
                 ],
                 { session }
             );
+            checkTimeout(req);
 
             // Перемещение товаров родительской категории, если она была листовой
             const unsortedCategory = await Category.findOne({ slug: 'unsorted' }).session(session);
+            checkTimeout(req);
 
             if (!unsortedCategory) {
                 throw createAppError(500, 'Корневая категория с URL "unsorted" отсутствует в базе данных');
@@ -102,6 +111,7 @@ export const handleCategoryCreateRequest = async (req, res, next) => {
                 { category: unsortedCategory._id },
                 { session }
             );
+            checkTimeout(req);
 
             return {
                 newCategory: createdCategory,
@@ -177,6 +187,7 @@ export const handleCategoryUpdateRequest = async (req, res, next) => {
         const { dbCategory, movedProductCount } = await runInTransaction(async (session) => {
             // Проверка существования изменяемой категории
             const dbCategory = await Category.findById(categoryId).session(session);
+            checkTimeout(req);
             
             if (!dbCategory) {
                 throw createAppError(404, `Категория товаров (ID: ${categoryId}) не найдена`);
@@ -189,6 +200,7 @@ export const handleCategoryUpdateRequest = async (req, res, next) => {
             // Проверка родительской категории, если это не корень
             if (parent !== null) {
                 const dbParentCategory = await Category.findById(parent).session(session);
+                checkTimeout(req);
 
                 if (!dbParentCategory) {
                     throw createAppError(404, `Родительская категория товаров (ID: ${parent}) отсутствует`);
@@ -223,6 +235,7 @@ export const handleCategoryUpdateRequest = async (req, res, next) => {
                         // Фильтрация массива результатов агрегатного запроса (содержит только нового родителя)
                         { $match: { 'ancestors._id': mongoose.Types.ObjectId.createFromHexString(categoryId) } }
                     ]).session(session);
+                    checkTimeout(req);
                       
                     if (isDescendant.length) {
                         throw createAppError(400, 'Категория товаров не может быть вложена в своего потомка');
@@ -243,9 +256,12 @@ export const handleCategoryUpdateRequest = async (req, res, next) => {
                     { $inc: { order: -1 } },
                     { session }
                 );
+                checkTimeout(req);
 
                 // Сдвиг номера у новых соседей
                 const neighborCount = await Category.countDocuments({ parent }).session(session);
+                checkTimeout(req);
+
                 correctedOrder = Math.min(Math.max(0, orderNum), neighborCount);
 
                 if (neighborCount && correctedOrder < neighborCount) {
@@ -254,9 +270,12 @@ export const handleCategoryUpdateRequest = async (req, res, next) => {
                         { $inc: { order: 1 } },
                         { session }
                     );
+                    checkTimeout(req);
                 }
             } else if (orderNum !== currentOrder) { // Категория остаётся на месте, но её номер меняется
                 const neighborCount = await Category.countDocuments({ parent }).session(session);
+                checkTimeout(req);
+
                 correctedOrder = Math.min(Math.max(0, orderNum), neighborCount - 1);
 
                 const rangeFilter = correctedOrder < currentOrder
@@ -269,6 +288,7 @@ export const handleCategoryUpdateRequest = async (req, res, next) => {
                     { $inc: { order: increment } },
                     { session }
                 );
+                checkTimeout(req);
             }
 
             // Установка новых данных и проверка их изменений
@@ -285,12 +305,14 @@ export const handleCategoryUpdateRequest = async (req, res, next) => {
             
             // Сохранение в базе MongoDB
             await dbCategory.save({ session });
+            checkTimeout(req);
 
             // Перемещение товаров новой родительской категории, если она была листовой
             let movedProductCount = 0;
 
             if (parent !== currentParent) {
                 const unsortedCategory = await Category.findOne({ slug: 'unsorted' }).session(session);
+                checkTimeout(req);
 
                 if (!unsortedCategory) {
                     throw createAppError(500, 'Корневая категория с URL "unsorted" отсутствует в базе данных');
@@ -301,6 +323,8 @@ export const handleCategoryUpdateRequest = async (req, res, next) => {
                     { category: unsortedCategory._id },
                     { session }
                 );
+                checkTimeout(req);
+
                 movedProductCount = productsMovedResult.modifiedCount;
             }
 
@@ -344,11 +368,7 @@ export const handleCategoryDeleteRequest = async (req, res, next) => {
     // (удаляются все дочерние подкатегории, задеваются номера соседних с удаляемой категорий,
     // все товары удаляемой и дочерних подкатегорий переносятся в корневую категорию c URL "unsorted")
     try {
-        const {
-            dbCategory,
-            descendantCategories,
-            movedProductCount
-        } = await runInTransaction(async (session) => {
+        const transactionResult = await runInTransaction(async (session) => {
             // Поиск удаляемой категории и всех её потомков
             const categoryObjectId = mongoose.Types.ObjectId.createFromHexString(categoryId);
 
@@ -367,6 +387,7 @@ export const handleCategoryDeleteRequest = async (req, res, next) => {
                     }                     // который создаётся в документе результата агрегатного запроса
                 }
             ]).session(session);
+            checkTimeout(req);
 
             // Проверка существования изменяемой категории
             const dbCategory = aggregateResult[0];
@@ -388,6 +409,7 @@ export const handleCategoryDeleteRequest = async (req, res, next) => {
                 { $inc: { order: -1 } },
                 { session }
             );
+            checkTimeout(req);
 
             // Удаление категории и всех её потомков
             const deletingCategoryIds = [categoryObjectId, ...descendantCategories.map(d => d._id)];
@@ -396,6 +418,7 @@ export const handleCategoryDeleteRequest = async (req, res, next) => {
                 { _id: { $in: deletingCategoryIds } },
                 { session }
             );
+            checkTimeout(req);
 
             if (deleteResult.deletedCount !== deletingCategoryIds.length) {
                 throw createAppError(
@@ -406,6 +429,7 @@ export const handleCategoryDeleteRequest = async (req, res, next) => {
 
             // Перемещение товаров удалённых категорий в категорию неотсортированных товаров
             const unsortedCategory = await Category.findOne({ slug: 'unsorted' }).session(session);
+            checkTimeout(req);
 
             if (!unsortedCategory) {
                 throw createAppError(500, 'Корневая категория с URL "unsorted" отсутствует в базе данных');
@@ -416,6 +440,7 @@ export const handleCategoryDeleteRequest = async (req, res, next) => {
                 { category: unsortedCategory._id },
                 { session }
             );
+            checkTimeout(req);
 
             return {
                 dbCategory,
@@ -423,6 +448,8 @@ export const handleCategoryDeleteRequest = async (req, res, next) => {
                 movedProductCount: productsMovedResult.modifiedCount
             };
         });
+
+        const { dbCategory, descendantCategories, movedProductCount } = transactionResult;
 
         // Транзакция успешно завершена - ответ клиенту об успехе
         const message = `Категория товаров "${dbCategory.name}" успешно удалена` +

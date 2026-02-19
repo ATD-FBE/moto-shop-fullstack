@@ -1,7 +1,7 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
-const PRODUCT_TIMEOUT = 32000;
+const PRODUCT_TIMEOUT = 35000;
 
 /// Загрузка списка товаров для одной страницы ///
 export const sendProductListRequest = (isAuthenticated, context, urlParams) => async (dispatch) => {

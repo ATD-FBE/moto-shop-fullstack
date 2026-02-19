@@ -1,7 +1,7 @@
 import apiFetch from './core/apiFetch.js';
 import apiResponse from './core/apiResponse.js';
 
-const COMPANY_TIMEOUT = 17000;
+const COMPANY_TIMEOUT = 20000;
 
 /// Генерация и загрузка реквизитов магазина в pdf ///
 export const sendCompanyDetailsPdfRequest = () => async (dispatch) => {

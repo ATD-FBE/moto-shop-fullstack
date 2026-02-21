@@ -6,7 +6,7 @@ import { setIsNavigationBlocked } from '@/redux/slices/uiSlice.js';
 import { logRequestStatus } from '@/helpers/requestLogger.js';
 import { toKebabCase, getFieldInfoClass } from '@/helpers/textHelpers.js';
 import { openAlertModal } from '@/services/modalAlertService.js';
-import { validationRules, fieldErrorMessages } from '@shared/validation.js';
+import { validationRules, fieldErrorMessages } from '@shared/fieldRules.js';
 import { isEqualCurrency } from '@shared/commonHelpers.js';
 import {
     MIN_ORDER_AMOUNT,

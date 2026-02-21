@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { typeCheck } from './typeValidation.js';
-import { fieldErrorMessages } from '../../shared/validation.js';
+import { fieldErrorMessages } from '../../shared/fieldRules.js';
 import { FILE_FIELD_MAP } from '../../shared/constants.js';
 
 export const isCriticalError = (error) => {

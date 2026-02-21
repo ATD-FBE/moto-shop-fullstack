@@ -9,7 +9,6 @@ import {
     PRODUCT_THUMBNAILS_FOLDER,
     ORDER_STORAGE_PATH
 } from '../../../config/paths.js';
-import { checkTimeout } from '../../../middlewares/timeoutMiddleware.js';
 import log from '../../../utils/logger.js';
 import { PRODUCT_THUMBNAIL_PRESETS, PRODUCT_THUMBNAIL_SIZES } from '../../../../shared/constants.js';
 
@@ -62,7 +61,7 @@ export const fsStorageProvider = {
     },
 
     /// Product ///
-    saveProductImages: async (productId, tempFiles = [], req) => {
+    saveProductImages: async (productId, tempFiles = []) => {
         if (!productId || !tempFiles.length) {
             throw new Error('Критические данные отсутствуют или неверны в saveProductImages (fs)');
         }
@@ -79,30 +78,41 @@ export const fsStorageProvider = {
         ]);
 
         // Обработка временных файлов
-        for (const file of tempFiles) {
-            checkTimeout(req);
-
+        const allImgTasks = tempFiles.map(async (file) => {
+            // Создание буфера оригнального файла для работы с ним
+            const origImgBuffer = await fsp.readFile(file.path);
+            const sharpPipeline = sharp(origImgBuffer);
+    
             // Перемещение оригинального файла
-            const filename = file.filename;
-            const origImagePath = join(originalsDir, filename);
-            await moveFile(file.path, origImagePath);
+            const origImgPath = join(originalsDir, file.filename);
+            const origImgTask = moveFile(file.path, origImgPath);
     
             // Генерация превьюшек
-            const sharpPipeline = sharp(origImagePath);
+            const thumbImgTasks = PRODUCT_THUMBNAIL_SIZES.map(size => {
+                const thumbImgPath = join(thumbnailsDir, `${size}px`, file.filename);
 
-            for (const size of PRODUCT_THUMBNAIL_SIZES) {
-                checkTimeout(req);
-
-                const thumbImagePath = join(thumbnailsDir, `${size}px`, filename);
-
-                await sharpPipeline
+                return sharpPipeline
                     .clone() // Клонирование состояния для каждого размера привью
                     .resize(size, size, { // Привью в форме квадрата со стороной size
                         fit: 'inside', // Картинка сохраняет пропорции и помещается по центру привью
                         withoutEnlargement: true // Картинка не растягивается в привью, если меньше пресета
                     })
-                    .toFile(thumbImagePath);
-            }
+                    .toFile(thumbImgPath); // Сохранение в файл по заданному пути
+            });
+    
+            // Выполнение всех задач
+            await Promise.all([origImgTask, ...thumbImgTasks]);
+        });
+
+        // Параллельная обработка заданий, ожидание всех промисов после ошибок
+        const saveResult = await Promise.allSettled(allImgTasks);
+        const rejectedTasks = saveResult.filter(r => r.status === 'rejected');
+
+        if (rejectedTasks.length > 0) {
+            throw new Error(
+                `Ошибка сохранения изображений товара ${productId}: ` +
+                `${rejectedTasks.length} из ${saveResult.length} операций завершились с ошибкой`
+            );
         }
     },
 
@@ -129,43 +139,54 @@ export const fsStorageProvider = {
     },
 
     /// Order ///
-    saveOrderItemsImages: async (orderId, orderItems = [], req) => {
+    saveOrderItemsImages: async (orderId, orderItems = []) => {
         if (!orderId || !orderItems.length) {
             throw new Error('Критические данные отсутствуют или неверны в saveOrderItemsImages (fs)');
         }
 
+        // Фильтрация только тех товаров, у которых есть фото
+        const validOrderItems = orderItems.filter(item => item.imageFilename);
+        if (!validOrderItems.length) return;
+
+        // Предварительное создание папки заказа в хранилище
         const orderDir = join(ORDER_STORAGE_PATH, orderId);
-        const thumbImageSize = PRODUCT_THUMBNAIL_PRESETS.small;
-        let isOrderDirExist = false;
+        await ensureDir(orderDir);
 
-        for (const item of orderItems) {
-            checkTimeout(req);
-            if (!item.imageFilename) continue;
+        // Копирование превьюшек товаров в хранилище для заказа
+        const thumbImgSize = PRODUCT_THUMBNAIL_PRESETS.small;
 
-            if (!isOrderDirExist) {
-                await ensureDir(orderDir);
-                isOrderDirExist = true;
-            }
+        const copyThumbImgTasks = validOrderItems.map(async (item) => {
+            const productId = item.productId.toString();
 
             const srcPath = join(
                 PRODUCT_STORAGE_PATH,
-                item.productId.toString(),
+                productId,
                 PRODUCT_THUMBNAILS_FOLDER,
-                `${thumbImageSize}px`,
+                `${thumbImgSize}px`,
                 item.imageFilename
             );
             const destPath = join(orderDir, item.imageFilename);
-
+    
             try {
                 await copyFile(srcPath, destPath);
             } catch (err) {
                 if (err.code === 'ENOENT') {
-                    log.warn(`[Order ${orderId}] Превью товара ${item.productId} не найдено в источнике`);
-                    continue; 
+                    log.error(`[Order (ID: ${orderId})] Превью товара ${productId} не найдено в источнике`);
+                    return;
                 }
-
-                throw err; 
+                throw err;
             }
+        });
+
+        // Параллельная обработка заданий, ожидание всех промисов после ошибок
+        const saveResult = await Promise.allSettled(copyThumbImgTasks);
+        const rejectedTasks = saveResult.filter(r => r.status === 'rejected');
+
+        if (rejectedTasks.length > 0) {
+            throw new Error(
+                `Ошибка копирования миниатюр товаров при создании заказа (ID: ${orderId}): ` +
+                `${rejectedTasks.length} из ${saveResult.length} операций завершились с ошибкой`
+            );
         }
     },
 

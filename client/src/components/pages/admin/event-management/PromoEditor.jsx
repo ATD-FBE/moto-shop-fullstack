@@ -14,7 +14,7 @@ import { setIsNavigationBlocked } from '@/redux/slices/uiSlice.js';
 import moveKeyToEndInFormData from '@/helpers/moveKeyToEndInFormData.js';
 import { toKebabCase, getFieldInfoClass } from '@/helpers/textHelpers.js';
 import { logRequestStatus } from '@/helpers/requestLogger.js';
-import { validationRules, fieldErrorMessages } from '@shared/validation.js';
+import { validationRules, fieldErrorMessages } from '@shared/fieldRules.js';
 import { ALLOWED_IMAGE_MIME_TYPES, MAX_PROMO_IMAGE_SIZE_MB } from '@shared/constants.js';
 import { CLIENT_CONSTANTS } from '@shared/constants.js';
 

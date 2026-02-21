@@ -11,12 +11,12 @@ export const handleGuestCartItemListRequest = async (req, res, next) => {
     const { guestCart } = req.body ?? {};
 
     if (!typeCheck.arrayOf(guestCart, 'object', typeCheck)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: guestCart' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: guestCart' });
     }
 
     for (const { id, quantity } of guestCart) {
         if (!typeCheck.objectId(id) || !Number.isInteger(quantity) || quantity < 0) {
-            return safeSendResponse(req, res, 400, { message: 'Неверный формат данных в guestCart' });
+            return safeSendResponse(res, 400, { message: 'Неверный формат данных в guestCart' });
         }
     }
 
@@ -24,7 +24,7 @@ export const handleGuestCartItemListRequest = async (req, res, next) => {
         const { purchaseProductList, cartItemList } = await prepareGuestCart(guestCart);
         checkTimeout(req);
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: 'Гостевая корзина успешно синхронизирована',
             purchaseProductList,
             cartItemList
@@ -42,7 +42,7 @@ export const handleCartItemListRequest = async (req, res, next) => {
         const { purchaseProductList, cartItemList } = await prepareCart(dbUser.cart);
         checkTimeout(req);
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: 'Корзина успешно загружена',
             purchaseProductList,
             cartItemList,
@@ -68,16 +68,16 @@ export const handleCartItemUpdateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     const quantityNum = Number(quantity);
 
     if (!Number.isInteger(quantityNum) || quantityNum < 0) {
-        return safeSendResponse(req, res, 400, { message: 'Некорректное значение поля: quantity' });
+        return safeSendResponse(res, 400, { message: 'Некорректное значение поля: quantity' });
     }
 
     try {
@@ -114,10 +114,10 @@ export const handleCartItemUpdateRequest = async (req, res, next) => {
             return { prodLbl };
         });
 
-        safeSendResponse(req, res, 200, { message: `Количество товара ${prodLbl} в корзине изменено` });
+        safeSendResponse(res, 200, { message: `Количество товара ${prodLbl} в корзине изменено` });
     } catch (err) {
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         next(err);
@@ -140,26 +140,26 @@ export const handleCartItemRestoreRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     const quantityNum = Number(quantity);
     const positionNum = Number(position);
 
     if (!Number.isInteger(quantityNum) || quantityNum < 0) {
-        return safeSendResponse(req, res, 400, { message: 'Некорректное значение поля: quantity' });
+        return safeSendResponse(res, 400, { message: 'Некорректное значение поля: quantity' });
     }
     if (!Number.isInteger(positionNum) || positionNum < 0) {
-        return safeSendResponse(req, res, 400, { message: 'Некорректное значение поля: position' });
+        return safeSendResponse(res, 400, { message: 'Некорректное значение поля: position' });
     }
     
     const isItemInCart = dbUser.cart.some(item => item.productId.equals(productId));
 
     if (isItemInCart) {
-        return safeSendResponse(req, res, 400, { message: 'Товар уже есть в корзине' });
+        return safeSendResponse(res, 400, { message: 'Товар уже есть в корзине' });
     }
 
     try {
@@ -188,10 +188,10 @@ export const handleCartItemRestoreRequest = async (req, res, next) => {
             return { prodLbl };
         });
 
-        safeSendResponse(req, res, 200, { message: `Товар ${prodLbl} успешно восстановлен в корзине` });
+        safeSendResponse(res, 200, { message: `Товар ${prodLbl} успешно восстановлен в корзине` });
     } catch (err) {
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         next(err);
@@ -214,7 +214,7 @@ export const handleCartWarningsFixRequest = async (req, res, next) => {
             return { purchaseProductList, cartItemList };
         });
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: 'Проблемные товары в корзине успешно исправлены',
             purchaseProductList,
             cartItemList,
@@ -231,7 +231,7 @@ export const handleCartItemRemoveRequest = async (req, res, next) => {
     const productId = req.params.productId;
 
     if (!typeCheck.objectId(productId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: productId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: productId' });
     }
 
     try {
@@ -241,7 +241,7 @@ export const handleCartItemRemoveRequest = async (req, res, next) => {
             checkTimeout(req);
         });
 
-        safeSendResponse(req, res, 200, { message: `Товар ${productId} удалён из корзины` });
+        safeSendResponse(res, 200, { message: `Товар ${productId} удалён из корзины` });
     } catch (err) {
         next(err);
     }
@@ -258,7 +258,7 @@ export const handleCartClearRequest = async (req, res, next) => {
             checkTimeout(req);
         });
 
-        safeSendResponse(req, res, 200, { message: 'Корзина успешно очищена' });
+        safeSendResponse(res, 200, { message: 'Корзина успешно очищена' });
     } catch (err) {
         next(err);
     }

@@ -132,7 +132,7 @@ export const handleNotificationListRequest = async (req, res, next) => {
             }
 
             default:
-                return safeSendResponse(req, res, 403, {
+                return safeSendResponse(res, 403, {
                     message: 'Запрещено: несоответствующая роль',
                     reason: REQUEST_STATUS.DENIED
                 });
@@ -142,7 +142,7 @@ export const handleNotificationListRequest = async (req, res, next) => {
             prepareNotificationData(notif, { managed: isAdmin })
         );
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: 'Уведомления успешно загружены',
             notificationsCount,
             paginatedNotificationList
@@ -157,7 +157,7 @@ export const handleNotificationRequest = async (req, res, next) => {
     const notificationId = req.params.notificationId;
 
     if (!typeCheck.objectId(notificationId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: notificationId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: notificationId' });
     }
 
     try {
@@ -167,12 +167,12 @@ export const handleNotificationRequest = async (req, res, next) => {
         checkTimeout(req);
 
         if (!dbNotification) {
-            return safeSendResponse(req, res, 404, {
+            return safeSendResponse(res, 404, {
                 message: `Уведомление (ID: ${notificationId}) не найдено`
             });
         }
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Уведомление "${dbNotification.subject}" успешно загружено`,
             notification: prepareNotificationData(dbNotification, { managed: true, edit: true })
         });
@@ -198,10 +198,10 @@ export const handleNotificationCreateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     // Создание документа в базе MongoDB
@@ -224,7 +224,7 @@ export const handleNotificationCreateRequest = async (req, res, next) => {
             return { notifLbl: newNotification.subject };
         });
 
-        safeSendResponse(req, res, 201, {
+        safeSendResponse(res, 201, {
             message: `Уведомление "${notifLbl}" успешно создано`
         });
     } catch (err) {
@@ -234,7 +234,7 @@ export const handleNotificationCreateRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -261,10 +261,10 @@ export const handleNotificationUpdateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     // Апдейт документа в базе MongoDB
@@ -311,11 +311,11 @@ export const handleNotificationUpdateRequest = async (req, res, next) => {
             return { notifLbl };
         });
 
-        safeSendResponse(req, res, 200, { message: `Уведомление ${notifLbl} успешно изменено` });
+        safeSendResponse(res, 200, { message: `Уведомление ${notifLbl} успешно изменено` });
     } catch (err) {
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         // Обработка ошибок валидации полей
@@ -324,7 +324,7 @@ export const handleNotificationUpdateRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -338,7 +338,7 @@ export const handleNotificationSendingRequest = async (req, res, next) => {
     const notificationId = req.params.notificationId;
 
     if (!typeCheck.objectId(notificationId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: notificationId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: notificationId' });
     }
 
     try {
@@ -393,7 +393,7 @@ export const handleNotificationSendingRequest = async (req, res, next) => {
             });
         }
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: recipientsSentCount === 0
                 ? `Уведомление ${notifLbl} отправлено, но ни один пользователь не был` +
                     ' обновлён - возможно, оно уже есть у получателей, либо они были удалены'
@@ -407,7 +407,7 @@ export const handleNotificationSendingRequest = async (req, res, next) => {
     } catch (err) {
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         next(err);
@@ -420,18 +420,18 @@ export const handleNotificationMarkAsReadRequest = async (req, res, next) => {
     const notificationId = req.params.notificationId;
 
     if (!typeCheck.objectId(notificationId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: notificationId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: notificationId' });
     }
 
     const notification = dbUser.notifications.find(n => n.notificationId.toString() === notificationId);
 
     if (!notification) {
-        return safeSendResponse(req, res, 404, {
+        return safeSendResponse(res, 404, {
             message: `Уведомление (ID: ${notificationId}) не найдено у пользователя`
         });
     }
     if (notification.isRead) {
-        return safeSendResponse(req, res, 204);
+        return safeSendResponse(res, 204);
     }
 
     try {
@@ -457,7 +457,7 @@ export const handleNotificationMarkAsReadRequest = async (req, res, next) => {
         // Отправка SSE-сообщения клиенту
         sseNotifications.sendToClients([dbUser._id], { newUnreadNotificationsCount: -1 });
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Уведомление ${notifLbl} отмечено как прочитанное`,
             updatedNotificationData: {
                 isRead: notification.isRead,
@@ -466,7 +466,7 @@ export const handleNotificationMarkAsReadRequest = async (req, res, next) => {
         });
     } catch (err) {
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
         
         next(err);
@@ -478,7 +478,7 @@ export const handleNotificationDeleteRequest = async (req, res, next) => {
     const notificationId = req.params.notificationId;
 
     if (!typeCheck.objectId(notificationId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: notificationId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: notificationId' });
     }
 
     try {
@@ -501,10 +501,10 @@ export const handleNotificationDeleteRequest = async (req, res, next) => {
             return { notifLbl };
         });
 
-        safeSendResponse(req, res, 200, { message: `Уведомление ${notifLbl} успешно удалено` });
+        safeSendResponse(res, 200, { message: `Уведомление ${notifLbl} успешно удалено` });
     } catch (err) {
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         next(err);

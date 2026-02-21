@@ -3,7 +3,7 @@ import { useDispatch } from 'react-redux';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import cn from 'classnames';
 import FormFooter from '@/components/common/FormFooter.jsx';
-import { validationRules, fieldErrorMessages } from '@shared/validation.js';
+import { validationRules, fieldErrorMessages } from '@shared/fieldRules.js';
 import { sendAuthRegistrationRequest } from '@/api/authRequests.js';
 import { setIsNavigationBlocked } from '@/redux/slices/uiSlice.js';
 import { login, resetSuppressAuthRedirect } from '@/redux/slices/authSlice.js';

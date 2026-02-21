@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { validationRules } from '../../../../shared/validation.js';
+import { validationRules } from '../../../../shared/fieldRules.js';
 import { DELIVERY_METHOD, DELIVERY_METHOD_OPTIONS } from '../../../../shared/constants.js';
 
 const { Schema } = mongoose;

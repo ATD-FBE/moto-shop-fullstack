@@ -7,16 +7,12 @@ export function errorTracker(req, res, next) {
 
     log.info(`Request: ${req.reqCtx}`);
 
-    req.on('aborted', () => {
-        log.warn(`${req.reqCtx} - Соединение было прервано клиентом`);
-        req.connectionAborted = true;
+    res.on('close', () => {
+        if (!res.writableFinished) {
+            req.connectionAborted = true; 
+            log.warn(`${req.reqCtx} - Соединение было прервано клиентом`);
+        }
     });
-
-    /*req.on('close', () => {
-        if (res.writableFinished) return; // Запрос успешно завершён
-        log.warn(`${req.reqCtx} - Соединение было прервано`);
-        req.connectionClosed = true;
-    });*/
 
     req.on('error', (err) => {
         if (req.connectionAborted) return;
@@ -46,5 +42,5 @@ export function globalErrorHandler(err, req, res, next) {
     }
 
     const errorMessage = err.message || (isServerError ? 'Ошибка сервера!' : 'Ошибка запроса!');
-    safeSendResponse(req, res, statusCode, { message: errorMessage });
+    safeSendResponse(res, statusCode, { message: errorMessage });
 };

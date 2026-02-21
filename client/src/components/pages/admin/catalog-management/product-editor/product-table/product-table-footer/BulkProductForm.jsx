@@ -3,7 +3,7 @@ import { useDispatch } from 'react-redux';
 import cn from 'classnames';
 import FormFooter from '@/components/common/FormFooter.jsx';
 import DesignedCheckbox from '@/components/common/DesignedCheckbox.jsx';
-import { validationRules, fieldErrorMessages } from '@shared/validation.js';
+import { validationRules, fieldErrorMessages } from '@shared/fieldRules.js';
 import { setIsNavigationBlocked } from '@/redux/slices/uiSlice.js';
 import { sendBulkProductUpdateRequest } from '@/api/productRequests.js';
 import { toKebabCase, getFieldInfoClass } from '@/helpers/textHelpers.js';

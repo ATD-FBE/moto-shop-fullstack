@@ -53,7 +53,7 @@ export const handleOrderInvoicePdfRequest = async (req, res, next) => {
     const orderId = req.params.orderId;
 
     if (!typeCheck.objectId(orderId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: orderId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: orderId' });
     }
 
     try {
@@ -63,16 +63,16 @@ export const handleOrderInvoicePdfRequest = async (req, res, next) => {
         const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
         
         if (!dbOrder) {
-            return safeSendResponse(req, res, 404, { message: `Заказ ${orderLbl} не найден` });
+            return safeSendResponse(res, 404, { message: `Заказ ${orderLbl} не найден` });
         }
         if (dbUser.role === 'customer' && !dbOrder.customerId.equals(dbUser._id)) {
-            return safeSendResponse(req, res, 403, {
+            return safeSendResponse(res, 403, {
                 message: `Запрещено: заказ ${orderLbl} принадлежит другому клиенту`,
                 reason: REQUEST_STATUS.DENIED
             });
         }
         if (dbOrder.currentStatus === ORDER_STATUS.DRAFT) {
-            return safeSendResponse(req, res, 409, { message: `Заказ ${orderLbl} не оформлен` });
+            return safeSendResponse(res, 409, { message: `Заказ ${orderLbl} не оформлен` });
         }
 
         const { pdfDoc, filename } = generateOrderInvoicePdf(dbOrder);
@@ -93,7 +93,7 @@ export const handleOrderRemainingAmountRequest = async (req, res, next) => {
     const orderId = req.params.orderId;
 
     if (!typeCheck.objectId(orderId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: orderId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: orderId' });
     }
 
     try {
@@ -103,16 +103,16 @@ export const handleOrderRemainingAmountRequest = async (req, res, next) => {
         const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
         
         if (!dbOrder) {
-            return safeSendResponse(req, res, 404, { message: `Заказ ${orderLbl} не найден` });
+            return safeSendResponse(res, 404, { message: `Заказ ${orderLbl} не найден` });
         }
         if (!dbOrder.customerId.equals(dbUser._id)) {
-            return safeSendResponse(req, res, 403, {
+            return safeSendResponse(res, 403, {
                 message: `Запрещено: заказ ${orderLbl} принадлежит другому клиенту`,
                 reason: REQUEST_STATUS.DENIED
             });
         }
         if (dbOrder.currentStatus === ORDER_STATUS.DRAFT) {
-            return safeSendResponse(req, res, 409, { message: `Заказ ${orderLbl} не оформлен` });
+            return safeSendResponse(res, 409, { message: `Заказ ${orderLbl} не оформлен` });
         }
 
         const financials = calculateOrderFinancials(dbOrder.financials.eventHistory);
@@ -120,7 +120,7 @@ export const handleOrderRemainingAmountRequest = async (req, res, next) => {
         const totalAmount = dbOrder.totals.totalAmount;
         const remainingAmount = Number((totalAmount - netPaid).toFixed(2));
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Остаток для оплаты заказа ${orderLbl} успешно вычислен`,
             remainingAmount,
             orderNumber: dbOrder.orderNumber
@@ -150,10 +150,10 @@ export const handleOrderFinancialsEventVoidRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     // Работа с базой данных
@@ -297,12 +297,12 @@ export const handleOrderFinancialsEventVoidRequest = async (req, res, next) => {
         const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };
         sseOrderManagement.sendToAllClients(sseMessageData);
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Финансовая запись ${eventLbl} заказа ${orderLbl} успешно аннулирована`
         });
     } catch (err) {
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         if (err.name === 'ValidationError') {
@@ -310,7 +310,7 @@ export const handleOrderFinancialsEventVoidRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -343,10 +343,10 @@ export const handleOrderOfflinePaymentApplyRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     const prepDbFields = {
@@ -376,7 +376,7 @@ export const handleOrderOfflinePaymentApplyRequest = async (req, res, next) => {
     }
 
     if (invalidFields.length > 0) {
-        return safeSendResponse(req, res, 422, {
+        return safeSendResponse(res, 422, {
             message: 'Некорректные данные',
             fieldErrors: getFieldErrors(invalidFields, 'payment')
         });
@@ -475,12 +475,12 @@ export const handleOrderOfflinePaymentApplyRequest = async (req, res, next) => {
         const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };
         sseOrderManagement.sendToAllClients(sseMessageData);
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Оплата за заказ ${orderLbl} оффлайн методом успешно внесена`
         });
     } catch (err) {
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         if (err.name === 'ValidationError') {
@@ -488,7 +488,7 @@ export const handleOrderOfflinePaymentApplyRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -522,10 +522,10 @@ export const handleOrderOfflineRefundApplyRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     const prepDbFields = {
@@ -556,7 +556,7 @@ export const handleOrderOfflineRefundApplyRequest = async (req, res, next) => {
     }
 
     if (invalidFields.length > 0) {
-        return safeSendResponse(req, res, 422, {
+        return safeSendResponse(res, 422, {
             message: 'Некорректные данные',
             fieldErrors: getFieldErrors(invalidFields, 'refund')
         });
@@ -650,12 +650,12 @@ export const handleOrderOfflineRefundApplyRequest = async (req, res, next) => {
         const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };
         sseOrderManagement.sendToAllClients(sseMessageData);
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Возврат средств по заказу ${orderLbl} оффлайн методом выполнен`
         });
     } catch (err) {
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         if (err.name === 'ValidationError') {
@@ -663,7 +663,7 @@ export const handleOrderOfflineRefundApplyRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -690,14 +690,14 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     if (!paymentToken.trim()) {
-        return safeSendResponse(req, res, 400, { message: 'Отсутствует платёжный токен' });
+        return safeSendResponse(res, 400, { message: 'Отсутствует платёжный токен' });
     }
 
     const amountNum = Number(amount);
@@ -711,7 +711,7 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
     }
 
     if (invalidFields.length > 0) {
-        return safeSendResponse(req, res, 422, {
+        return safeSendResponse(res, 422, {
             message: 'Некорректные данные',
             fieldErrors: getFieldErrors(invalidFields, 'payment')
         });
@@ -726,16 +726,16 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
         const orderLbl = orderNumber ? `№${orderNumber}` : `(ID: ${orderId})`;
 
         if (!dbOrder) {
-            return safeSendResponse(req, res, 404, { message: `Заказ ${orderLbl} не найден` });
+            return safeSendResponse(res, 404, { message: `Заказ ${orderLbl} не найден` });
         }
         if (!dbOrder.customerId.equals(dbUser._id)) {
-            return safeSendResponse(req, res, 403, {
+            return safeSendResponse(res, 403, {
                 message: `Запрещено: заказ ${orderLbl} принадлежит другому клиенту`,
                 reason: REQUEST_STATUS.DENIED
             });
         }
         if (!ORDER_ACTIVE_STATUSES.includes(dbOrder.currentStatus)) {
-            return safeSendResponse(req, res, 409, { message: `Заказ ${orderLbl} не активен` });
+            return safeSendResponse(res, 409, { message: `Заказ ${orderLbl} не активен` });
         }
 
         const currentTransaction = dbOrder.financials.currentOnlineTransaction;
@@ -743,14 +743,14 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
         if (currentTransaction) {
             switch (currentTransaction.status) {
                 case ONLINE_TRANSACTION_STATUS.INIT:
-                    return safeSendResponse(req, res, 409, {
+                    return safeSendResponse(res, 409, {
                         message:
                             `Онлайн-транзакция для заказа ${orderLbl} уже инициирована, ` +
                             `тип: ${currentTransaction.type}`
                     });
 
                 case ONLINE_TRANSACTION_STATUS.PROCESSING:
-                    return safeSendResponse(req, res, 409, {
+                    return safeSendResponse(res, 409, {
                         message:
                             `Онлайн-транзакция для заказа ${orderLbl} создана и обрабатывается, ` +
                             `тип: ${currentTransaction.type}`
@@ -767,7 +767,7 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
         const totalAmount = dbOrder.totals.totalAmount;
 
         if (isEqualCurrency(netPaid, totalAmount) || netPaid > totalAmount) {
-            return safeSendResponse(req, res, 403, {
+            return safeSendResponse(res, 403, {
                 message: `Запрещено: заказ ${orderLbl} уже оплачен`
             });
         }
@@ -775,7 +775,7 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
         const newNetPaid = netPaid + amountNum;
 
         if (!isEqualCurrency(newNetPaid, totalAmount) && newNetPaid > totalAmount) {
-            return safeSendResponse(req, res, 403, {
+            return safeSendResponse(res, 403, {
                 message: `Запрещено: заказ ${orderLbl} переплачен`
             });
         }
@@ -802,7 +802,7 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
         );
         
         if (!updatedDbOrder) {
-            return safeSendResponse(req, res, 409, { message: `Конфликт состояния заказа ${orderLbl}` });
+            return safeSendResponse(res, 409, { message: `Конфликт состояния заказа ${orderLbl}` });
         }
 
         // Формирование и отправка SSE-сообщения с созданием онлайн-транзакции (до проверки таймаута)
@@ -857,7 +857,7 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
             // Проверка таймаута после SSE-сообщения
             checkTimeout(req);
 
-            return safeSendResponse(req, res, 500, {
+            return safeSendResponse(res, 500, {
                 message: `По заказу ${orderLbl} онлайн оплата не создана`
             });
         }
@@ -899,7 +899,7 @@ export const handleOrderOnlinePaymentCreateRequest = async (req, res, next) => {
         checkTimeout(req);
 
         // Отправка ответа клиенту
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Оплата за заказ ${orderLbl} картой онлайн обрабатывается`,
             confirmationUrl: paymentResult.confirmationUrl
         });
@@ -913,7 +913,7 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
     const orderId = req.params.orderId;
 
     if (!typeCheck.objectId(orderId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: orderId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: orderId' });
     }
 
     try {
@@ -924,13 +924,13 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
         const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
 
         if (!dbOrder) {
-            return safeSendResponse(req, res, 404, { message: `Заказ ${orderLbl} не найден` });
+            return safeSendResponse(res, 404, { message: `Заказ ${orderLbl} не найден` });
         }
 
         const currentOrderStatus = dbOrder.currentStatus;
 
         if (currentOrderStatus === ORDER_STATUS.DRAFT) {
-            return safeSendResponse(req, res, 409, { message: `Заказ ${orderLbl} не оформлен` });
+            return safeSendResponse(res, 409, { message: `Заказ ${orderLbl} не оформлен` });
         }
 
         const currentTransaction = dbOrder.financials.currentOnlineTransaction;
@@ -938,14 +938,14 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
         if (currentTransaction) {
             switch (currentTransaction.status) {
                 case ONLINE_TRANSACTION_STATUS.INIT:
-                    return safeSendResponse(req, res, 409, {
+                    return safeSendResponse(res, 409, {
                         message:
                             `Онлайн-транзакция для заказа ${orderLbl} уже инициирована, ` +
                             `тип: ${currentTransaction.type}`
                     });
 
                 case ONLINE_TRANSACTION_STATUS.PROCESSING:
-                    return safeSendResponse(req, res, 409, {
+                    return safeSendResponse(res, 409, {
                         message:
                             `Онлайн-транзакция для заказа ${orderLbl} создана и обрабатывается, ` +
                             `тип: ${currentTransaction.type}`
@@ -965,12 +965,12 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
         const isCancelledOrder = currentOrderStatus === ORDER_STATUS.CANCELLED;
 
         if (!isCancelledOrder && (isEqualCurrency(netPaid, totalAmount) || netPaid < totalAmount)) {
-            return safeSendResponse(req, res, 403, {
+            return safeSendResponse(res, 403, {
                 message: `Запрещено: заказ ${orderLbl} не переплачен`
             });
         }
         if (isCancelledOrder && (isEqualCurrency(netPaid, 0) || netPaid < 0)) {
-            return safeSendResponse(req, res, 403, {
+            return safeSendResponse(res, 403, {
                 message: `Запрещено: нулевой или отрицательный баланс заказа ${orderLbl}`
             });
         }
@@ -983,7 +983,7 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
         } = getOrderCardRefundStats(financialsEventHistory);
 
         if (!refundTasks.length) {
-            return safeSendResponse(req, res, 409, {
+            return safeSendResponse(res, 409, {
                 message: `По заказу ${orderLbl} нет доступных для автовозврата оплат картами`
             });
         }
@@ -991,7 +991,7 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
         const newNetPaid = netPaid - totalRefundAmount;
 
         if (!isEqualCurrency(newNetPaid, 0) && newNetPaid < 0) {
-            return safeSendResponse(req, res, 403, {
+            return safeSendResponse(res, 403, {
                 message: `Запрещено: избыточный возврат средств по заказу ${orderLbl}`
             });
         }
@@ -1018,7 +1018,7 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
         );
         
         if (!updatedDbOrder) {
-            return safeSendResponse(req, res, 409, { message: `Конфликт состояния заказа ${orderLbl}` });
+            return safeSendResponse(res, 409, { message: `Конфликт состояния заказа ${orderLbl}` });
         }
 
         // Формирование и отправка SSE-сообщения с созданием онлайн-транзакции (до проверки таймаута)
@@ -1093,7 +1093,7 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
             // Проверка таймаута после SSE-сообщения
             checkTimeout(req);
 
-            return safeSendResponse(req, res, 500, {
+            return safeSendResponse(res, 500, {
                 message: `По заказу ${orderLbl} не создано ни одного возврата`
             });
         }
@@ -1132,7 +1132,7 @@ export const handleOrderOnlineRefundsCreateRequest = async (req, res, next) => {
         checkTimeout(req);
 
         // Отправка ответа клиенту
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Автовозврат средств по заказу ${orderLbl} на карты онлайн обрабатывается`
         });
     } catch (err) {
@@ -1148,21 +1148,21 @@ export const handleWebhook = async (req, res, next) => {
     const provider = detectWebhookProvider(req);
 
     if (!provider) {
-        return safeSendResponse(req, res, 200, { message: 'Неизвестный провайдер' });
+        return safeSendResponse(res, 200, { message: 'Неизвестный провайдер' });
     }
 
     // Проверка подлинности вебхука
     const isValidAuthenticity = verifyWebhookAuthenticity(provider, req);
 
     if (!isValidAuthenticity) {
-        return safeSendResponse(req, res, 200, { message: 'Подлинность вебхука не подтверждена' });
+        return safeSendResponse(res, 200, { message: 'Подлинность вебхука не подтверждена' });
     }
 
     // Нормализация данных в теле запроса
     const normalizedWebhook = normalizeWebhook(provider, req.body);
 
     if (!normalizedWebhook) {
-        return safeSendResponse(req, res, 200, { message: 'Игнорирование события' });
+        return safeSendResponse(res, 200, { message: 'Игнорирование события' });
     }
 
     // Проверка критических данных вебхука
@@ -1184,7 +1184,7 @@ export const handleWebhook = async (req, res, next) => {
             reason: 'Отсутствуют ключевые данные в вебхуке от платёжной системы',
             data: normalizedWebhook
         });
-        return safeSendResponse(req, res, 200, { message: 'Битые или отсутствующие данные' });
+        return safeSendResponse(res, 200, { message: 'Битые или отсутствующие данные' });
     }
 
     try {
@@ -1302,10 +1302,10 @@ export const handleWebhook = async (req, res, next) => {
         sseOrderManagement.sendToAllClients(sseMessageData);
 
         // Отправка успешного ответа YooKassa
-        safeSendResponse(req, res, 200);
+        safeSendResponse(res, 200);
     } catch (err) {
         if (err.isAppError) {
-            return safeSendResponse(req, res, 200); // Не повторять уведомления с вебхуком
+            return safeSendResponse(res, 200); // Не повторять уведомления с вебхуком
         }
 
         next(err);

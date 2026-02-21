@@ -10,7 +10,7 @@ import {
     FINANCIALS_STATE_CONFIG,
     FINANCIALS_EVENT_CONFIG
 } from '../../../../shared/constants.js';
-import { validationRules } from '../../../../shared/validation.js';
+import { validationRules } from '../../../../shared/fieldRules.js';
 
 const { Schema } = mongoose;
 

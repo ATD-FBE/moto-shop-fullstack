@@ -7,9 +7,8 @@ import { applyProductBulkUpdate } from './productService.js';
 import { ORDER_STORAGE_FOLDER, SERVER_ROOT, STORAGE_URL_PATH } from '../config/paths.js';
 import { logCriticalEvent } from './criticalEventService.js';
 import { getLastFinancialsEventEntry, isEqualCurrency } from '../../shared/commonHelpers.js';
-import { fieldErrorMessages } from '../../shared/validation.js';
+import { fieldErrorMessages } from '../../shared/fieldRules.js';
 import {
-    COMPANY_DETAILS,
     ORDER_MODEL_TYPE,
     DELIVERY_METHOD,
     PAYMENT_METHOD,
@@ -20,6 +19,7 @@ import {
     FINANCIALS_EVENT,
     TRANSACTION_TYPE
 } from '../../shared/constants.js';
+import { COMPANY_DETAILS } from '../../shared/company.js';
 
 const { convert: convertNumberToWordsRu } = numberToWordsRuPkg;
 

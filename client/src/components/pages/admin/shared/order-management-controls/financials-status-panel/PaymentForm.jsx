@@ -9,7 +9,7 @@ import { setIsNavigationBlocked } from '@/redux/slices/uiSlice.js';
 import { logRequestStatus } from '@/helpers/requestLogger.js';
 import { toKebabCase, getFieldInfoClass } from '@/helpers/textHelpers.js';
 import { isEqualCurrency } from '@shared/commonHelpers.js';
-import { validationRules, fieldErrorMessages } from '@shared/validation.js';
+import { validationRules, fieldErrorMessages } from '@shared/fieldRules.js';
 import {
     PAYMENT_METHOD,
     OFFLINE_PAYMENT_METHOD_OPTIONS,

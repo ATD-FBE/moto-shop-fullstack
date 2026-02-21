@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import uniqueValidator from 'mongoose-unique-validator';
 import { PRODUCT_UNITS } from '../../../shared/constants.js';
-import { validationRules } from '../../../shared/validation.js';
+import { validationRules } from '../../../shared/fieldRules.js';
 
 const { Schema } = mongoose;
 

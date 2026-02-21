@@ -7,7 +7,7 @@ import { openAlertModal } from '@/services/modalAlertService.js';
 import { logRequestStatus } from '@/helpers/requestLogger.js';
 import { formatCurrency, formatProductTitle } from '@/helpers/textHelpers.js';
 import { makeOrderItemQuantityFieldName } from '@shared/commonHelpers.js';
-import { validationRules, fieldErrorMessages } from '@shared/validation.js';
+import { validationRules, fieldErrorMessages } from '@shared/fieldRules.js';
 import { REQUEST_STATUS, CLIENT_CONSTANTS } from '@shared/constants.js';
 
 const { PRODUCT_IMAGE_PLACEHOLDER, FIELD_UI_STATUS, SUCCESS_DELAY } = CLIENT_CONSTANTS;

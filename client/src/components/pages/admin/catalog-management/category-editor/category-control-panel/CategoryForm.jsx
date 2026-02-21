@@ -2,7 +2,7 @@ import React, { useMemo, useReducer, useState, useRef, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import cn from 'classnames';
 import FormFooter from '@/components/common/FormFooter.jsx';
-import { validationRules, fieldErrorMessages } from '@shared/validation.js';
+import { validationRules, fieldErrorMessages } from '@shared/fieldRules.js';
 import { setIsNavigationBlocked } from '@/redux/slices/uiSlice.js';
 import { sendCategoryCreateRequest, sendCategoryUpdateRequest } from '@/api/categoryRequests.js';
 import { toKebabCase, getFieldInfoClass } from '@/helpers/textHelpers.js';

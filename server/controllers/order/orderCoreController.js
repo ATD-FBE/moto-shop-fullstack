@@ -37,7 +37,7 @@ import { ordersSortOptions } from '../../../shared/sortOptions.js';
 import { ordersPageLimitOptions } from '../../../shared/pageLimitOptions.js';
 import { isEqualCurrency, makeOrderItemQuantityFieldName, } from '../../../shared/commonHelpers.js';
 import { calculateOrderTotals, calculateOrderFinancials } from '../../../shared/calculations.js';
-import { validationRules, fieldErrorMessages } from '../../../shared/validation.js';
+import { validationRules, fieldErrorMessages } from '../../../shared/fieldRules.js';
 import {
     DEFAULT_SEARCH_TYPE,
     MIN_ORDER_AMOUNT,
@@ -181,7 +181,7 @@ export const handleOrderListRequest = async (req, res, next) => {
             }
 
             default:
-                return safeSendResponse(req, res, 403, {
+                return safeSendResponse(res, 403, {
                     message: 'Запрещено: несоответствующая роль',
                     reason: REQUEST_STATUS.DENIED
                 });
@@ -199,7 +199,7 @@ export const handleOrderListRequest = async (req, res, next) => {
             viewerRole: dbUser.role
         }));
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: 'Заказы успешно загружены',
             filteredOrderIdList,
             paginatedOrderList
@@ -216,10 +216,10 @@ export const handleOrderRequest = async (req, res, next) => {
     const orderId = req.params.orderId;
 
     if (!typeCheck.objectId(orderId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: orderId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: orderId' });
     }
     if (!['page', 'list'].includes(viewMode)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: viewMode' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: viewMode' });
     }
 
     try {
@@ -229,13 +229,13 @@ export const handleOrderRequest = async (req, res, next) => {
         const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
         
         if (!dbOrder) {
-            return safeSendResponse(req, res, 404, { message: `Заказ ${orderLbl} не найден` });
+            return safeSendResponse(res, 404, { message: `Заказ ${orderLbl} не найден` });
         }
 
         const viewConfig = ORDER_VIEW_MATRIX[viewerRole][viewMode];
         const order = prepareOrderData(dbOrder, { ...viewConfig, viewerRole });
 
-        safeSendResponse(req, res, 200, { message: `Заказ ${orderLbl} успешно загружен`, order });
+        safeSendResponse(res, 200, { message: `Заказ ${orderLbl} успешно загружен`, order });
     } catch (err) {
         next(err);
     }
@@ -246,7 +246,7 @@ export const handleOrderItemsAvailabilityRequest = async (req, res, next) => {
     const orderId = req.params.orderId;
 
     if (!typeCheck.objectId(orderId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: orderId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: orderId' });
     }
 
     try {
@@ -256,7 +256,7 @@ export const handleOrderItemsAvailabilityRequest = async (req, res, next) => {
         const orderLbl = dbOrder?.orderNumber ? `№${dbOrder.orderNumber}` : `(ID: ${orderId})`;
         
         if (!dbOrder) {
-            return safeSendResponse(req, res, 404, { message: `Заказ ${orderLbl} не найден` });
+            return safeSendResponse(res, 404, { message: `Заказ ${orderLbl} не найден` });
         }
 
         const productIds = dbOrder.items.map(item => item.productId);
@@ -276,7 +276,7 @@ export const handleOrderItemsAvailabilityRequest = async (req, res, next) => {
             })
         );
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Доступное количество на складе товаров в заказе ${orderLbl} успешно загружено`,
             orderItemsAvailabilityMap
         });
@@ -291,7 +291,7 @@ export const handleOrderRepeatRequest = async (req, res, next) => {
     const orderId = req.params.orderId;
 
     if (!typeCheck.objectId(orderId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: orderId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: orderId' });
     }
 
     try {
@@ -331,12 +331,12 @@ export const handleOrderRepeatRequest = async (req, res, next) => {
             return { orderLbl };
         });
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Товары из заказа ${orderLbl} повторно добавлены в корзину`
         });
     } catch (err) {
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         next(err);
@@ -358,10 +358,10 @@ export const handleOrderInternalNoteUpdateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     // Работа с базой данных
@@ -399,10 +399,10 @@ export const handleOrderInternalNoteUpdateRequest = async (req, res, next) => {
         const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };
         sseOrderManagement.sendToAllClients(sseMessageData);
 
-        safeSendResponse(req, res, 200, { message: `Внутренняя заметка заказа ${orderLbl} изменена` });
+        safeSendResponse(res, 200, { message: `Внутренняя заметка заказа ${orderLbl} изменена` });
     } catch (err) {
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         if (err.name === 'ValidationError') {
@@ -410,7 +410,7 @@ export const handleOrderInternalNoteUpdateRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -457,10 +457,10 @@ export const handleOrderDetailsUpdateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     // Проверка на согласованность данных для метода курьерской доставки
@@ -468,7 +468,7 @@ export const handleOrderDetailsUpdateRequest = async (req, res, next) => {
     const isAllowCourierExtra = allowCourierExtra !== undefined && allowCourierExtra !== '';
 
     if ((isCourierMethod && !isAllowCourierExtra) || (!isCourierMethod && isAllowCourierExtra)) {
-        return safeSendResponse(req, res, 400, { message: 'Несогласованные данные для метода доставки' });
+        return safeSendResponse(res, 400, { message: 'Несогласованные данные для метода доставки' });
     }
 
     // Заполнение данных только для пришедших полей через дот-нотационные названия полей
@@ -479,7 +479,7 @@ export const handleOrderDetailsUpdateRequest = async (req, res, next) => {
     );
 
     if (!Object.keys(updateFields).length) {
-        return safeSendResponse(req, res, 204);
+        return safeSendResponse(res, 204);
     }
 
     try {
@@ -555,11 +555,11 @@ export const handleOrderDetailsUpdateRequest = async (req, res, next) => {
         const sseMessageData = { orderUpdate: { orderId, updatedOrderData } };
         sseOrderManagement.sendToAllClients(sseMessageData);
 
-        safeSendResponse(req, res, 200, { message: `Заказ ${orderLbl} успешно изменён` });
+        safeSendResponse(res, 200, { message: `Заказ ${orderLbl} успешно изменён` });
     } catch (err) {
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         // Обработка ошибок валидации полей при сохранении в MongoDB
@@ -568,7 +568,7 @@ export const handleOrderDetailsUpdateRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
         
@@ -595,7 +595,7 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
 
     // Проверка содержимого массива items
@@ -603,7 +603,7 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
 
     for (const { productId, quantity } of items) {
         if (!typeCheck.objectId(productId)) {
-            return safeSendResponse(req, res, 400, { message: 'Неверный формат данных в items' });
+            return safeSendResponse(res, 400, { message: 'Неверный формат данных в items' });
         }
 
         // Проверка нового значения поля для количества товара
@@ -621,7 +621,7 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
     const hasItemFieldErrors = Object.keys(itemFieldErrors).length > 0;
 
     if (hasFieldErrors || hasItemFieldErrors) {
-        return safeSendResponse(req, res, 422, {
+        return safeSendResponse(res, 422, {
             message: 'Неверный формат данных',
             ...(hasFieldErrors && { fieldErrors }),
             ...(hasItemFieldErrors && { itemFieldErrors })
@@ -630,7 +630,7 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
 
     // Отсутствуют поля в массиве товаров
     if (!items.length) {
-        return safeSendResponse(req, res, 204);
+        return safeSendResponse(res, 204);
     }
 
     try {
@@ -836,7 +836,7 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
         sseOrderManagement.sendToAllClients(sseMessageData);
 
         // Отправка ответа клиенту
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Заказ ${orderLbl} успешно изменён`,
             orderItemsAdjustments: itemsAdjustments
         });
@@ -848,7 +848,7 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
     } catch (err) {
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         // Обработка ошибок валидации полей при сохранении в MongoDB
@@ -857,7 +857,7 @@ export const handleOrderItemsUpdateRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
         
@@ -885,15 +885,15 @@ export const handleOrderStatusUpdateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     // Проверка доступных значений для action
     if (!Object.values(ORDER_ACTION).includes(action)) {
-        return safeSendResponse(req, res, 400, { message: 'Некорректное значение поля: action' });
+        return safeSendResponse(res, 400, { message: 'Некорректное значение поля: action' });
     }
 
     try {
@@ -1130,13 +1130,13 @@ export const handleOrderStatusUpdateRequest = async (req, res, next) => {
         sseOrderManagement.sendToAllClients(sseMessageData);
 
         // Отправка ответа заказчику
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Статус заказа ${orderLbl} успешно изменён: ${newOrderStatus}`
         });
     } catch (err) {
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         // Обработка ошибок валидации полей при сохранении в MongoDB
@@ -1145,7 +1145,7 @@ export const handleOrderStatusUpdateRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 

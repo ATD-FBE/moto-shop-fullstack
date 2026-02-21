@@ -7,6 +7,7 @@ import { runInTransaction } from '../utils/transaction.js';
 import { createAppError, prepareAppErrorData } from '../utils/errorUtils.js';
 import { parseValidationErrors } from '../utils/errorUtils.js';
 import safeSendResponse from '../utils/safeSendResponse.js';
+import { UNSORTED_CATEGORY_SLUG } from '../../shared/constants.js';
 
 /// Загрузка всех категорий ///
 export const handleCategoryListRequest = async (req, res, next) => {
@@ -16,7 +17,7 @@ export const handleCategoryListRequest = async (req, res, next) => {
 
         const categoryList = dbCategoryList.map(({ _id, ...rest }) => ({ id: _id, ...rest }));
 
-        safeSendResponse(req, res, 200, { message: 'Категории товаров успешно загружены', categoryList });
+        safeSendResponse(res, 200, { message: 'Категории товаров успешно загружены', categoryList });
     } catch (err) {
         next(err);
     }
@@ -38,17 +39,17 @@ export const handleCategoryCreateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     // Проверка числовых полей
     const orderNum = Number(order);
 
     if (!Number.isInteger(orderNum) || orderNum < 0) {
-        return safeSendResponse(req, res, 400, { message: 'Некорректное значение поля: order' });
+        return safeSendResponse(res, 400, { message: 'Некорректное значение поля: order' });
     }
 
     try {
@@ -99,11 +100,14 @@ export const handleCategoryCreateRequest = async (req, res, next) => {
             checkTimeout(req);
 
             // Перемещение товаров родительской категории, если она была листовой
-            const unsortedCategory = await Category.findOne({ slug: 'unsorted' }).session(session);
+            const unsortedCategory = await Category.findOne({ slug: UNSORTED_CATEGORY_SLUG }).session(session);
             checkTimeout(req);
 
             if (!unsortedCategory) {
-                throw createAppError(500, 'Корневая категория с URL "unsorted" отсутствует в базе данных');
+                throw createAppError(
+                    500,
+                    `Корневая категория с URL "${UNSORTED_CATEGORY_SLUG}" отсутствует в базе данных`
+                );
             }
 
             const productsMovedResult = await Product.updateMany(
@@ -120,7 +124,7 @@ export const handleCategoryCreateRequest = async (req, res, next) => {
         });
 
         // Транзакция успешно завершена - ответ клиенту об успехе
-        safeSendResponse(req, res, 201, {
+        safeSendResponse(res, 201, {
             message: `Категория товаров "${newCategory.name}" успешно создана`,
             newCategoryId: newCategory._id,
             movedProductCount
@@ -128,7 +132,7 @@ export const handleCategoryCreateRequest = async (req, res, next) => {
     } catch (err) {
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         // Обработка ошибок валидации полей
@@ -137,7 +141,7 @@ export const handleCategoryCreateRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -163,22 +167,22 @@ export const handleCategoryUpdateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     // Проверка числовых полей
     const orderNum = Number(order);
 
     if (!Number.isInteger(orderNum) || orderNum < 0) {
-        return safeSendResponse(req, res, 400, { message: 'Некорректное значение поля: order' });
+        return safeSendResponse(res, 400, { message: 'Некорректное значение поля: order' });
     }
 
     // Проверка отличия родителя от самой категории
     if (parent === categoryId) {
-        return safeSendResponse(req, res, 400, {
+        return safeSendResponse(res, 400, {
             message: 'Категория товаров не может быть родителем самой себя'
         });
     }
@@ -311,11 +315,14 @@ export const handleCategoryUpdateRequest = async (req, res, next) => {
             let movedProductCount = 0;
 
             if (parent !== currentParent) {
-                const unsortedCategory = await Category.findOne({ slug: 'unsorted' }).session(session);
+                const unsortedCategory = await Category.findOne({ slug: UNSORTED_CATEGORY_SLUG }).session(session);
                 checkTimeout(req);
 
                 if (!unsortedCategory) {
-                    throw createAppError(500, 'Корневая категория с URL "unsorted" отсутствует в базе данных');
+                    throw createAppError(
+                        500,
+                        `Корневая категория с URL "${UNSORTED_CATEGORY_SLUG}" отсутствует в базе данных`
+                    );
                 }
     
                 const productsMovedResult = await Product.updateMany(
@@ -332,14 +339,14 @@ export const handleCategoryUpdateRequest = async (req, res, next) => {
         });
 
         // Транзакция успешно завершена - ответ клиенту об успехе
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Категория товаров "${dbCategory.name}" успешно изменена`,
             movedProductCount
         });
     } catch (err) {
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
         
         // Обработка ошибок валидации полей
@@ -348,7 +355,7 @@ export const handleCategoryUpdateRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -361,7 +368,7 @@ export const handleCategoryDeleteRequest = async (req, res, next) => {
     const categoryId = req.params.categoryId;
 
     if (!typeCheck.objectId(categoryId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: categoryId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: categoryId' });
     }
 
     // Удаление документа в базе MongoDB с использованием транзакции
@@ -428,11 +435,14 @@ export const handleCategoryDeleteRequest = async (req, res, next) => {
             }
 
             // Перемещение товаров удалённых категорий в категорию неотсортированных товаров
-            const unsortedCategory = await Category.findOne({ slug: 'unsorted' }).session(session);
+            const unsortedCategory = await Category.findOne({ slug: UNSORTED_CATEGORY_SLUG }).session(session);
             checkTimeout(req);
 
             if (!unsortedCategory) {
-                throw createAppError(500, 'Корневая категория с URL "unsorted" отсутствует в базе данных');
+                throw createAppError(
+                    500,
+                    `Корневая категория с URL "${UNSORTED_CATEGORY_SLUG}" отсутствует в базе данных`
+                );
             }
 
             const productsMovedResult = await Product.updateMany(
@@ -458,11 +468,11 @@ export const handleCategoryDeleteRequest = async (req, res, next) => {
                     descendantCategories.map(d => d.name).join('", "') + '"'
                 : '');
 
-        safeSendResponse(req, res, 200, { message, movedProductCount });
+        safeSendResponse(res, 200, { message, movedProductCount });
     } catch (err) {
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         next(err);

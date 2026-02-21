@@ -1,6 +1,6 @@
 import React from 'react';
 import TrackedImage from '@/components/common/TrackedImage.jsx';
-import { COMPANY_DETAILS } from '@shared/constants.js';
+import { COMPANY_DETAILS } from '@shared/company.js';
  
 export default function AboutShop() {
     return (

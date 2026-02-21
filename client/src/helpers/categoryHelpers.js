@@ -69,7 +69,7 @@ export const getAllExpandableCategoryIds = (categoryTree) => {
 export const getLeafCategories = (categoryTree) =>
     categoryTree.flatMap(cat =>
         !cat.subcategories.length
-            ? [{ id: cat.id, name: cat.name }]
+            ? [{ id: cat.id, name: cat.name, slug: cat.slug }]
             : getLeafCategories(cat.subcategories)
     );
 
@@ -77,7 +77,7 @@ export const getLeafCategories = (categoryTree) =>
 /*export const getLeafCategories = (categoryMap) =>
     Object.values(categoryMap)
         .filter(cat => !cat.subcategories.length)
-        .map(cat => { id: cat.id, name: cat.name });*/
+        .map(cat => { id: cat.id, name: cat.name, slug: cat.slug });*/
 
 // Рекурсивная функция получения всех потомков выбранной категории
 export const getDescendantCategoryIds = (selectedCategory) => {

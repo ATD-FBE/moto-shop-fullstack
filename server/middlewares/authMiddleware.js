@@ -15,20 +15,20 @@ export const verifyAuth = async (req, res, next) => {
         const accessToken = req.cookies.accessToken;
 
         if (!accessToken) {
-            return safeSendResponse(req, res, 401, { message: 'Токен доступа отсутствует' });
+            return safeSendResponse(res, 401, { message: 'Токен доступа отсутствует' });
         }
         
         req.user = jwt.verify(accessToken, config.jwt.accessSecretKey);
         next();
     } catch (err) {
         if (err instanceof jwt.TokenExpiredError) {
-            return safeSendResponse(req, res, 401, { message: 'Срок действия токена доступа истёк' });
+            return safeSendResponse(res, 401, { message: 'Срок действия токена доступа истёк' });
         }
         if (err instanceof jwt.JsonWebTokenError) {
-            return safeSendResponse(req, res, 401, { message: 'Неверный токен доступа' });
+            return safeSendResponse(res, 401, { message: 'Неверный токен доступа' });
         }
         if (err instanceof jwt.NotBeforeError) {
-            return safeSendResponse(req, res, 401, { message: 'Токен доступа ещё не активен' });
+            return safeSendResponse(res, 401, { message: 'Токен доступа ещё не активен' });
         }
         
         next(err);
@@ -41,7 +41,7 @@ export const verifyUser = async (req, res, next) => {
         checkTimeout(req);
 
         if (!dbUser) {
-            return safeSendResponse(req, res, 410, {
+            return safeSendResponse(res, 410, {
                 message: 'Пользователь не найден',
                 reason: REQUEST_STATUS.USER_GONE
             });
@@ -56,7 +56,7 @@ export const verifyUser = async (req, res, next) => {
 
 export const verifyRole = (...requiredRoles) => (req, res, next) => {
     if (!requiredRoles.includes(req.dbUser.role)) {
-        return safeSendResponse(req, res, 403, {
+        return safeSendResponse(res, 403, {
             message: 'Запрещено: недостаточно прав',
             reason: REQUEST_STATUS.DENIED
         });
@@ -79,13 +79,13 @@ export const optionalAuth = async (req, res, next) => {
         next();
     } catch (err) {
         if (err instanceof jwt.TokenExpiredError) {
-            return safeSendResponse(req, res, 401, { message: 'Срок действия токена доступа истёк' });
+            return safeSendResponse(res, 401, { message: 'Срок действия токена доступа истёк' });
         }
         if (err instanceof jwt.JsonWebTokenError) {
-            return safeSendResponse(req, res, 401, { message: 'Неверный токен доступа' });
+            return safeSendResponse(res, 401, { message: 'Неверный токен доступа' });
         }
         if (err instanceof jwt.NotBeforeError) {
-            return safeSendResponse(req, res, 401, { message: 'Токен доступа ещё не активен' });
+            return safeSendResponse(res, 401, { message: 'Токен доступа ещё не активен' });
         }
 
         next(err);
@@ -102,7 +102,7 @@ export const optionalUser = async (req, res, next) => {
         checkTimeout(req);
 
         if (!dbUser) {
-            return safeSendResponse(req, res, 410, {
+            return safeSendResponse(res, 410, {
                 message: 'Пользователь не найден',
                 reason: REQUEST_STATUS.USER_GONE
             });
@@ -121,7 +121,7 @@ export const optionalRole = (...requiredRoles) => (req, res, next) => {
     }
 
     if (!requiredRoles.includes(req.dbUser.role)) {
-        return safeSendResponse(req, res, 403, {
+        return safeSendResponse(res, 403, {
             message: 'Запрещено: недостаточно прав',
             reason: REQUEST_STATUS.DENIED
         });

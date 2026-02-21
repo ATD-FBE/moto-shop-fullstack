@@ -11,13 +11,13 @@ import { sendProductCreateRequest, sendProductUpdateRequest } from '@/api/produc
 import { toKebabCase, formatProductTitle, getFieldInfoClass } from '@/helpers/textHelpers.js';
 import moveKeyToEndInFormData from '@/helpers/moveKeyToEndInFormData.js';
 import { logRequestStatus } from '@/helpers/requestLogger.js';
-import { validationRules, fieldErrorMessages } from '@shared/validation.js';
+import { validationRules, fieldErrorMessages } from '@shared/fieldRules.js';
 import {
     ALLOWED_IMAGE_MIME_TYPES,
     PRODUCT_FILES_LIMIT,
     MAX_PRODUCT_IMAGE_SIZE_MB
 } from '@shared/constants.js';
-import { PRODUCT_UNITS, CLIENT_CONSTANTS } from '@shared/constants.js';
+import { UNSORTED_CATEGORY_SLUG, PRODUCT_UNITS, CLIENT_CONSTANTS } from '@shared/constants.js';
 
 const { FORM_STATUS, BASE_SUBMIT_STATES, FIELD_UI_STATUS, SUCCESS_DELAY } = CLIENT_CONSTANTS;
 
@@ -56,7 +56,9 @@ const getSubmitStates = (isEditMode) => {
 };
 
 const getFieldConfigs = (isEditMode, product, allowedCategories) => {
-    const initCategory = product && allowedCategories.find(cat => cat.id === product.category);
+    const initCategory = product
+        ? allowedCategories.find(cat => cat.id === product.category)
+        : allowedCategories.find(cat => cat.slug === UNSORTED_CATEGORY_SLUG);
 
     const fieldConfigs = [
         {

@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import cn from 'classnames';
 import FormFooter from '@/components/common/FormFooter.jsx';
 import DesignedCheckbox from '@/components/common/DesignedCheckbox.jsx';
-import { validationRules, fieldErrorMessages } from '@shared/validation.js';
+import { validationRules, fieldErrorMessages } from '@shared/fieldRules.js';
 import { sendAuthLoginRequest } from '@/api/authRequests.js';
 import { setIsNavigationBlocked } from '@/redux/slices/uiSlice.js';
 import { login, resetSuppressAuthRedirect } from '@/redux/slices/authSlice.js';

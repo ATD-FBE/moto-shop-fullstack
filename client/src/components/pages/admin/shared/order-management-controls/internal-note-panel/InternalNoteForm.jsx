@@ -6,7 +6,7 @@ import { sendOrderInternalNoteUpdateRequest } from '@/api/orderRequests.js';
 import { setIsNavigationBlocked } from '@/redux/slices/uiSlice.js';
 import { logRequestStatus } from '@/helpers/requestLogger.js';
 import { toKebabCase, getFieldInfoClass } from '@/helpers/textHelpers.js';
-import { validationRules, fieldErrorMessages } from '@shared/validation.js';
+import { validationRules, fieldErrorMessages } from '@shared/fieldRules.js';
 import { CLIENT_CONSTANTS } from '@shared/constants.js';
 
 const { FORM_STATUS, BASE_SUBMIT_STATES, FIELD_UI_STATUS, SUCCESS_DELAY } = CLIENT_CONSTANTS;

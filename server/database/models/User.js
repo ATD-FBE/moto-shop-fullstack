@@ -4,7 +4,7 @@ import bcrypt from 'bcrypt';
 import { DraftCustomerInfoSchema } from './schemas/CustomerInfoSchemas.js';
 import { DraftDeliverySchema } from './schemas/DeliverySchemas.js';
 import { DraftFinancialsSchema } from './schemas/FinancialsSchemas.js';
-import { validationRules } from '../../../shared/validation.js';
+import { validationRules } from '../../../shared/fieldRules.js';
 
 const { Schema } = mongoose;
 const SALT_ROUNDS = 12;

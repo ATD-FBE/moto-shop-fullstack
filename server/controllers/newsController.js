@@ -28,7 +28,7 @@ export const handleNewsListRequest = async (req, res, next) => {
 
         const newsList = dbNewsList.map(news => prepareNewsData(news, { managed: isAdmin }));
 
-        safeSendResponse(req, res, 200, { message: 'Новости успешно загружены', newsList });
+        safeSendResponse(res, 200, { message: 'Новости успешно загружены', newsList });
     } catch (err) {
         next(err);
     }
@@ -39,7 +39,7 @@ export const handleNewsRequest = async (req, res, next) => {
     const newsId = req.params.newsId;
 
     if (!typeCheck.objectId(newsId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: newsId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: newsId' });
     }
 
     try {
@@ -47,10 +47,10 @@ export const handleNewsRequest = async (req, res, next) => {
         checkTimeout(req);
 
         if (!dbNews) {
-            return safeSendResponse(req, res, 404, { message: `Новость (ID: ${newsId}) не найдена` });
+            return safeSendResponse(res, 404, { message: `Новость (ID: ${newsId}) не найдена` });
         }
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Новость "${dbNews.title}" успешно загружена`,
             news: prepareNewsData(dbNews)
         });
@@ -74,10 +74,10 @@ export const handleNewsCreateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     // Создание документа в базе MongoDB
@@ -98,7 +98,7 @@ export const handleNewsCreateRequest = async (req, res, next) => {
             return { newsLbl: newNews.title };
         });
 
-        safeSendResponse(req, res, 201, { message: `Новость "${newsLbl}" успешно создана` });
+        safeSendResponse(res, 201, { message: `Новость "${newsLbl}" успешно создана` });
     } catch (err) {
         // Обработка ошибок валидации полей
         if (err.name === 'ValidationError') {
@@ -106,7 +106,7 @@ export const handleNewsCreateRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -131,10 +131,10 @@ export const handleNewsUpdateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     // Апдейт документа в базе MongoDB
@@ -168,11 +168,11 @@ export const handleNewsUpdateRequest = async (req, res, next) => {
             return { newsLbl };
         });
 
-        safeSendResponse(req, res, 200, { message: `Новость "${newsLbl}" успешно изменена` });
+        safeSendResponse(res, 200, { message: `Новость "${newsLbl}" успешно изменена` });
     } catch (err) {
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         // Обработка ошибок валидации полей
@@ -181,7 +181,7 @@ export const handleNewsUpdateRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -194,7 +194,7 @@ export const handleNewsDeleteRequest = async (req, res, next) => {
     const newsId = req.params.newsId;
 
     if (!typeCheck.objectId(newsId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: newsId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: newsId' });
     }
 
     try {
@@ -211,10 +211,10 @@ export const handleNewsDeleteRequest = async (req, res, next) => {
             return { newsLbl };
         });
 
-        safeSendResponse(req, res, 200, { message: `Новость ${newsLbl} успешно удалена` });
+        safeSendResponse(res, 200, { message: `Новость ${newsLbl} успешно удалена` });
     } catch (err) {
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         next(err);

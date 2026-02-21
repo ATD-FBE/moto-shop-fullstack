@@ -1,7 +1,7 @@
 import React, { useMemo, useReducer, useState, useRef, useEffect } from 'react';
 import cn from 'classnames';
 import DesignedCheckbox from '@/components/common/DesignedCheckbox.jsx';
-import { validationRules, fieldErrorMessages } from '@shared/validation.js';
+import { validationRules, fieldErrorMessages } from '@shared/fieldRules.js';
 import { CLIENT_CONSTANTS } from '@shared/constants.js';
 
 const { FIELD_UI_STATUS, SUCCESS_DELAY } = CLIENT_CONSTANTS;

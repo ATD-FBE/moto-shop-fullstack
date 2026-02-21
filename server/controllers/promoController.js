@@ -25,7 +25,7 @@ export const handlePromoListRequest = async (req, res, next) => {
             const clientDateTimeUTC = new Date(timestamp - timeZoneOffset * 60 * 1000);
 
             if (isNaN(clientDateTimeUTC.getTime())) {
-                return safeSendResponse(req, res, 400, { message: 'Неверный формат даты' });
+                return safeSendResponse(res, 400, { message: 'Неверный формат даты' });
             }
 
             const announceStart = new Date(clientDateTimeUTC);
@@ -52,7 +52,7 @@ export const handlePromoListRequest = async (req, res, next) => {
 
         const promoList = dbPromoList.map(promo => preparePromoData(promo, { managed: isAdmin }));
 
-        safeSendResponse(req, res, 200, { message: 'Акции успешно загружены', promoList });
+        safeSendResponse(res, 200, { message: 'Акции успешно загружены', promoList });
     } catch (err) {
         next(err);
     }
@@ -63,7 +63,7 @@ export const handlePromoRequest = async (req, res, next) => {
     const promoId = req.params.promoId;
 
     if (!typeCheck.objectId(promoId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: promoId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: promoId' });
     }
 
     try {
@@ -73,10 +73,10 @@ export const handlePromoRequest = async (req, res, next) => {
         checkTimeout(req);
 
         if (!dbPromo) {
-            return safeSendResponse(req, res, 404, { message: `Акция (ID: ${promoId}) не найдена` });
+            return safeSendResponse(res, 404, { message: `Акция (ID: ${promoId}) не найдена` });
         }
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Акция "${dbPromo.title}" успешно загружена`,
             promo: preparePromoData(dbPromo)
         });
@@ -105,10 +105,10 @@ export const handlePromoCreateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     let newPromoId = null;
@@ -165,7 +165,7 @@ export const handlePromoCreateRequest = async (req, res, next) => {
         });
 
         // Отправка успешного ответа клиенту
-        safeSendResponse(req, res, 201, { message: `Акция ${promoLbl} успешно создана` });
+        safeSendResponse(res, 201, { message: `Акция ${promoLbl} успешно создана` });
     } catch (err) {
         // Очистка файла картинки акции в хранилище (безопасно)
         if (image) {
@@ -179,7 +179,7 @@ export const handlePromoCreateRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -210,10 +210,10 @@ export const handlePromoUpdateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     const shouldRemoveImage = removeImage === 'true';
@@ -309,7 +309,7 @@ export const handlePromoUpdateRequest = async (req, res, next) => {
         });
 
         // Отправка успешного ответа клиенту
-        safeSendResponse(req, res, 200, { message: `Акция "${promoLbl}" успешно изменена` });
+        safeSendResponse(res, 200, { message: `Акция "${promoLbl}" успешно изменена` });
 
         // Удаление старого файла картинки или папки файлов акции (безопасно)
         if (postUpdateFileCleanup) {
@@ -333,7 +333,7 @@ export const handlePromoUpdateRequest = async (req, res, next) => {
 
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         // Обработка ошибок валидации полей
@@ -342,7 +342,7 @@ export const handlePromoUpdateRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -356,7 +356,7 @@ export const handlePromoDeleteRequest = async (req, res, next) => {
     const promoId = req.params.promoId;
 
     if (!typeCheck.objectId(promoId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: promoId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: promoId' });
     }
 
     try {
@@ -373,11 +373,11 @@ export const handlePromoDeleteRequest = async (req, res, next) => {
             return { promoLbl };
         });
 
-        safeSendResponse(req, res, 200, { message: `Акция ${promoLbl} успешно удалена` });
+        safeSendResponse(res, 200, { message: `Акция ${promoLbl} успешно удалена` });
         storageService.cleanupPromoFiles(promoId, reqCtx);
     } catch (err) {
         if (err.isAppError) {
-            safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
             if (err.statusCode === 404) storageService.cleanupPromoFiles(promoId, reqCtx);
             return;
         }

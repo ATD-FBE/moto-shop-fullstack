@@ -10,7 +10,7 @@ import { formatOrderItemsAdjustmentLogs } from '@/services/orderService.js';
 import { openAlertModal } from '@/services/modalAlertService.js';
 import { logRequestStatus } from '@/helpers/requestLogger.js';
 import { toKebabCase, getFieldInfoClass, formatCurrency } from '@/helpers/textHelpers.js';
-import { validationRules, fieldErrorMessages } from '@shared/validation.js';
+import { validationRules, fieldErrorMessages } from '@shared/fieldRules.js';
 import {
     MIN_ORDER_AMOUNT,
     DELIVERY_METHOD,

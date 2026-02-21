@@ -16,7 +16,7 @@ import { customersFilterOptions } from '../../shared/filterOptions.js';
 import { customersSortOptions } from '../../shared/sortOptions.js';
 import { customersPageLimitOptions } from '../../shared/pageLimitOptions.js';
 import { DEFAULT_SEARCH_TYPE } from '../../shared/constants.js';
-import { validationRules, fieldErrorMessages } from '../../shared/validation.js';
+import { validationRules, fieldErrorMessages } from '../../shared/fieldRules.js';
 import { ORDER_STATUS } from '../../shared/constants.js';
 
 /// Загрузка ID всех отфильтрованных клиентов и их данных для одной страницы ///
@@ -80,7 +80,7 @@ export const handleCustomerListRequest = async (req, res, next) => {
         );
         const paginatedCustomerList = aggregateResult[0]?.paginatedCustomerList || [];
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: 'Данные клиентов успешно загружены',
             filteredCustomerNamesMap,
             paginatedCustomerList
@@ -107,7 +107,7 @@ export const handleCustomerOrderListRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
 
     try {
@@ -150,7 +150,7 @@ export const handleCustomerOrderListRequest = async (req, res, next) => {
             viewerRole: dbUser.role
         }));
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: 'Заказы клиента успешно загружены',
             totalCustomerOrders,
             customerOrderList,
@@ -175,17 +175,17 @@ export const handleCustomerDiscountUpdateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     const discountNum = Number(discount);
     const discountValidator = validationRules.customer.discount;
 
     if (!discountValidator || !discountValidator(discountNum)) {
-        return safeSendResponse(req, res, 422, {
+        return safeSendResponse(res, 422, {
             message: 'Некорректное значение поля',
             fieldErrors: {
                 discount: fieldErrorMessages.customer.discount?.default || fieldErrorMessages.DEFAULT
@@ -211,13 +211,13 @@ export const handleCustomerDiscountUpdateRequest = async (req, res, next) => {
             return { customerLbl };
         });
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Скидка клиента ${customerLbl} успешно изменена на ${discountNum}%`,
             updatedFields: { discount: discountNum }
         });
     } catch (err) {
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         next(err);
@@ -238,7 +238,7 @@ export const handleCustomerBanToggleRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
 
     try {
@@ -261,13 +261,13 @@ export const handleCustomerBanToggleRequest = async (req, res, next) => {
 
         const banStatusText = newBanStatus ? 'заблокирован' : 'разблокирован';
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Статус блокировки клиента ${customerLbl}: ${banStatusText}`,
             updatedFields: { isBanned: newBanStatus }
         });
     } catch (err) {
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         next(err);

@@ -15,7 +15,6 @@ import {
     PRODUCT_THUMBNAILS_FOLDER,
     ORDER_STORAGE_FOLDER
 } from '../../../config/paths.js';
-import { checkTimeout } from '../../../middlewares/timeoutMiddleware.js';
 import log from '../../../utils/logger.js';
 import { PRODUCT_THUMBNAIL_PRESETS, PRODUCT_THUMBNAIL_SIZES } from '../../../../shared/constants.js';
 
@@ -26,7 +25,7 @@ export const s3StorageProvider = {
         log.info(`Используется провайдер S3 файлового хранилища, бакет: ${config.storage.bucket}`);
     },
 
-    deleteTempFiles: async () => {},
+    deleteTempFiles: async () => Promise.resolve(), // Используется memory storage
     
     /// Promo ///
     savePromoImage: async (promoId, tempFile) => {
@@ -53,14 +52,13 @@ export const s3StorageProvider = {
     },
 
     /// Product ///
-    saveProductImages: async (productId, tempFiles = [], req) => {
+    saveProductImages: async (productId, tempFiles = []) => {
         if (!productId || !tempFiles.length) {
             throw new Error('Критические данные отсутствуют или неверны в saveProductImages (s3)');
         }
 
-        for (const file of tempFiles) {
-            checkTimeout(req);
-    
+        // Обработка буферов временных файлов
+        const allImgTasks = tempFiles.flatMap(file => {
             // Установка пути для оригинального файла и загрузка в хранилище s3
             const originalKey = [
                 PRODUCT_STORAGE_FOLDER,
@@ -69,14 +67,12 @@ export const s3StorageProvider = {
                 file.filename
             ].join('/');
     
-            await uploadBufferToS3(file.buffer, originalKey, file.mimetype);
-    
+            const origImgTask = uploadBufferToS3(file.buffer, originalKey, file.mimetype);
+
             // Генерация превью через Sharp и параллельная загрузка в хранилище s3
             const sharpPipeline = sharp(file.buffer);
 
-            for (const size of PRODUCT_THUMBNAIL_SIZES) {
-                checkTimeout(req);
-
+            const thumbImgTasks = PRODUCT_THUMBNAIL_SIZES.map(async (size) => {
                 const thumbKey = [
                     PRODUCT_STORAGE_FOLDER,
                     productId,
@@ -86,7 +82,7 @@ export const s3StorageProvider = {
                 ].join('/');
     
                 // Ресайз Sharp возвращает буфер асинхронно
-                const thumbBuffer = await sharpPipeline
+                const thumbImgBuffer = await sharpPipeline
                     .clone() // Клонирование состояния для каждого размера привью
                     .resize(size, size, { // Привью в форме квадрата со стороной size
                         fit: 'inside', // Картинка сохраняет пропорции и помещается по центру привью
@@ -94,8 +90,21 @@ export const s3StorageProvider = {
                     })
                     .toBuffer(); // Запись в буфер
 
-                await uploadBufferToS3(thumbBuffer, thumbKey, file.mimetype);
-            }
+                return uploadBufferToS3(thumbImgBuffer, thumbKey, file.mimetype);
+            });
+
+            return [origImgTask, ...thumbImgTasks];
+        });
+
+        // Параллельная обработка заданий, ожидание всех промисов после ошибок
+        const saveResult = await Promise.allSettled(allImgTasks);
+        const rejectedTasks = saveResult.filter(r => r.status === 'rejected');
+
+        if (rejectedTasks.length > 0) {
+            throw new Error(
+                `Ошибка сохранения изображений товара ${productId}: ` +
+                `${rejectedTasks.length} из ${saveResult.length} операций завершились с ошибкой`
+            );
         }
     },
 
@@ -122,22 +131,26 @@ export const s3StorageProvider = {
     },
 
     /// Order ///
-    saveOrderItemsImages: async (orderId, orderItems = [], req) => {
+    saveOrderItemsImages: async (orderId, orderItems = []) => {
         if (!orderId || !orderItems.length) {
             throw new Error('Критические данные отсутствуют или неверны в saveOrderItemsImages (s3)');
         }
 
-        const thumbImageSize = PRODUCT_THUMBNAIL_PRESETS.small;
+        // Фильтрация только тех товаров, у которых есть фото
+        const validOrderItems = orderItems.filter(item => item.imageFilename);
+        if (!validOrderItems.length) return;
 
-        for (const item of orderItems) {
-            checkTimeout(req);
-            if (!item.imageFilename) continue;
-    
+        // Копирование превьюшек товаров в хранилище для заказа
+        const thumbImgSize = PRODUCT_THUMBNAIL_PRESETS.small;
+
+        const copyThumbImgTasks = validOrderItems.map(async (item) => {
+            const productId = item.productId.toString();
+
             const srcKey = [
                 PRODUCT_STORAGE_FOLDER,
-                item.productId.toString(),
+                productId,
                 PRODUCT_THUMBNAILS_FOLDER,
-                `${thumbImageSize}px`,
+                `${thumbImgSize}px`,
                 item.imageFilename
             ].join('/');
     
@@ -151,12 +164,22 @@ export const s3StorageProvider = {
                 await copyObjectInS3(srcKey, destKey);
             } catch (err) {
                 if (err.name === 'NoSuchKey' || err.name === 'NotFound' || err.code === 'ENOENT') {
-                    log.warn(`[Order ${orderId}] Превью товара ${item.productId} не найдено в источнике`);
-                    continue; 
+                    log.error(`[Order (ID: ${orderId})] Превью товара ${productId} не найдено в источнике`);
+                    return; 
                 }
-
                 throw err; 
             }
+        });
+
+        // Параллельная обработка заданий, ожидание всех промисов после ошибок
+        const saveResult = await Promise.allSettled(copyThumbImgTasks);
+        const rejectedTasks = saveResult.filter(r => r.status === 'rejected');
+
+        if (rejectedTasks.length > 0) {
+            throw new Error(
+                `Ошибка копирования миниатюр товаров при создании заказа (ID: ${orderId}): ` +
+                `${rejectedTasks.length} из ${saveResult.length} операций завершились с ошибкой`
+            );
         }
     },
 
@@ -206,16 +229,27 @@ const copyObjectInS3 = async (srcKey, destKey) => {
 };
 
 const listObjectsByPrefix = async (prefix, reqCtx = 'SYSTEM') => {
-    try {
-        const listCommand = new ListObjectsV2Command({
-            Bucket: config.storage.bucket,
-            Prefix: prefix
-        });
+    const allKeys = [];
+    let token = null;
 
-        const response = await s3Client.send(listCommand);
-        return response.Contents?.map(item => item.Key) || [];
+    try {
+        // Запрос списка объектов 1000+ штук только с последовательными запросами через токены
+        do {
+            const listCommand = new ListObjectsV2Command({
+                Bucket: config.storage.bucket,
+                Prefix: prefix,
+                ContinuationToken: token || undefined // Если токена нет, S3 начнет с начала
+            });
+
+            const response = await s3Client.send(listCommand);
+            response.Contents?.forEach(item => allKeys.push(item.Key));
+
+            token = response.IsTruncated ? response.NextContinuationToken : null;
+        } while (token); // Токен приходит после каждой 1000 объектов (файлов)
+
+        return allKeys;
     } catch (err) {
-        log.error(`${reqCtx} - Ошибка получения списка объектов S3 по префиксу [${prefix}]:`, err);
+        log.error(`${reqCtx} - Ошибка получения полного списка объектов S3 по префиксу [${prefix}]:`, err);
         return [];
     }
 };
@@ -225,7 +259,7 @@ const deleteObjectsFromS3 = async (keys = [], reqCtx = 'SYSTEM') => {
     if (!keysArray.length) return;
 
     try {
-        // Удаление одного файла
+        // Удаление одного файла, если есть
         if (keysArray.length === 1) {
             const deleteCommand = new DeleteObjectCommand({
                 Bucket: config.storage.bucket,
@@ -236,8 +270,9 @@ const deleteObjectsFromS3 = async (keys = [], reqCtx = 'SYSTEM') => {
             return;
         }
 
-        // Удаление больше одного файла по частям
+        // Удаление больше одного файла по частям, если есть
         const chunkSize = 1000; // Стандартное максимальное количество файлов для одного запроса в S3
+        const deletePromises = [];
 
         for (let i = 0; i < keysArray.length; i += chunkSize) {
             const chunk = keysArray.slice(i, i + chunkSize);
@@ -250,8 +285,10 @@ const deleteObjectsFromS3 = async (keys = [], reqCtx = 'SYSTEM') => {
                 }
             });
 
-            await s3Client.send(deleteCommand);
+            deletePromises.push(s3Client.send(deleteCommand));
         }
+
+        await Promise.all(deletePromises);
     } catch (err) {
         log.error(`${reqCtx} - Ошибка при удалении объектов S3:`, err);
     }

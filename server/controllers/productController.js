@@ -93,7 +93,7 @@ export const handleProductListRequest = async (req, res, next) => {
             now: Date.now()
         }));
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: 'Товары успешно загружены',
             ...(isAdmin && isEditor 
                 ? { filteredProductIdList }
@@ -151,7 +151,7 @@ export const handleProductListRequest = async (req, res, next) => {
             now: Date.now()
         }));
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: 'Товары успешно загружены',
             limitedProductList,
             productCount
@@ -167,7 +167,7 @@ export const handleProductRequest = async (req, res, next) => {
     const productId = req.params.productId;
 
     if (!typeCheck.objectId(productId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: productId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: productId' });
     }
 
     try {
@@ -175,10 +175,10 @@ export const handleProductRequest = async (req, res, next) => {
         checkTimeout(req);
 
         if (!dbProduct) {
-            return safeSendResponse(req, res, 404, { message: `Товар (ID: ${productId}) не найден` });
+            return safeSendResponse(res, 404, { message: `Товар (ID: ${productId}) не найден` });
         }
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: 'Товар успешно загружен',
             product: prepareProductData(dbProduct, { managed: isAdmin })
         });
@@ -218,17 +218,17 @@ export const handleProductCreateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     // Проверка индекса фотографий
     const mainImageIndexNum = Number(mainImageIndex);
 
     if (mainImageIndex !== undefined &&  (!Number.isInteger(mainImageIndexNum) || mainImageIndexNum < 0)) {
-        return safeSendResponse(req, res, 400, { message: 'Некорректное значение поля: mainImageIndex' });
+        return safeSendResponse(res, 400, { message: 'Некорректное значение поля: mainImageIndex' });
     }
 
     // Проверка на согласованность индекса и количества фотографий
@@ -239,7 +239,7 @@ export const handleProductCreateRequest = async (req, res, next) => {
         (images.length > 0 && mainImageIndex === undefined) ||
         (!fileUploadError && mainImageIndex !== undefined && (noImages || indexOutOfRange))
     ) {
-        return safeSendResponse(req, res, 400, { message: 'Несогласованные данные для фотографий товара' });
+        return safeSendResponse(res, 400, { message: 'Несогласованные данные для фотографий товара' });
     }
     
     let newProductId;
@@ -299,7 +299,7 @@ export const handleProductCreateRequest = async (req, res, next) => {
             await newProductDoc.validate();
             checkTimeout(req);
 
-            // Перенос файлов фотографий в хранилище файлов товара и создание иконок
+            // Создание иконок и сохранение всех файлов фотографий в хранилище
             if (images.length > 0) {
                 newProductId = newProductDoc._id.toString(); // ID создался при валидации
                 await storageService.saveProductImages(newProductId, images, req);
@@ -315,7 +315,7 @@ export const handleProductCreateRequest = async (req, res, next) => {
         });
 
         // Отправка успешного ответа клиенту
-        safeSendResponse(req, res, 201, {
+        safeSendResponse(res, 201, {
             message: `Товар "${newDbProduct.name}" успешно создан`,
             newProduct: prepareProductData(newDbProduct, { managed: true })
         });
@@ -328,7 +328,7 @@ export const handleProductCreateRequest = async (req, res, next) => {
 
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         // Обработка ошибок валидации полей
@@ -337,7 +337,7 @@ export const handleProductCreateRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -380,17 +380,17 @@ export const handleProductUpdateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     // Проверка индекса фотографий
     const mainImageIndexNum = Number(mainImageIndex);
 
     if (mainImageIndex !== undefined && (!Number.isInteger(mainImageIndexNum) || mainImageIndexNum < 0)) {
-        return safeSendResponse(req, res, 400, { message: 'Некорректное значение поля: mainImageIndex' });
+        return safeSendResponse(res, 400, { message: 'Некорректное значение поля: mainImageIndex' });
     }
 
     const newImageFilenames = images.map(img => img.filename);
@@ -516,9 +516,9 @@ export const handleProductUpdateRequest = async (req, res, next) => {
             await dbProduct.validate({ pathsToSkip: ['imageFilenames', 'tags'] });
             checkTimeout(req);
 
-            // Перенос новых фотографий в хранилище файлов товара
+            // Создание иконок и сохранение всех новых файлов фотографий в хранилище
             if (images.length > 0) {
-                await storageService.saveProductImages(productId, images, req);
+                await storageService.saveProductImages(productId, images);
                 checkTimeout(req);
             }
 
@@ -547,7 +547,7 @@ export const handleProductUpdateRequest = async (req, res, next) => {
         const { prodLbl, updatedDbProduct, postUpdateFileCleanup } = transactionResult;
 
         // Отправка успешного ответа клиенту
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: `Товар "${prodLbl}" успешно обновлён`,
             updatedProduct: prepareProductData(updatedDbProduct, { managed: true })
         });
@@ -574,7 +574,7 @@ export const handleProductUpdateRequest = async (req, res, next) => {
 
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         // Обработка ошибок валидации полей
@@ -583,7 +583,7 @@ export const handleProductUpdateRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -613,10 +613,10 @@ export const handleBulkProductUpdateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     // Проверка выбранных товаров для апдейта
@@ -624,7 +624,7 @@ export const handleBulkProductUpdateRequest = async (req, res, next) => {
     const total = uniqueProductIds.length;
 
     if (!total) {
-        return safeSendResponse(req, res, 400, 'Товары для изменения не выбраны', {
+        return safeSendResponse(res, 400, 'Товары для изменения не выбраны', {
             reason: REQUEST_STATUS.NO_SELECTION
         });
     }
@@ -635,7 +635,7 @@ export const handleBulkProductUpdateRequest = async (req, res, next) => {
         .every(({ value }) => value === undefined);
 
     if (noFormUpdates) {
-        return safeSendResponse(req, res, 204);
+        return safeSendResponse(res, 204);
     }
 
     try {
@@ -735,11 +735,11 @@ export const handleBulkProductUpdateRequest = async (req, res, next) => {
             };
         });
 
-        safeSendResponse(req, res, statusCode, responseData);
+        safeSendResponse(res, statusCode, responseData);
     } catch (err) {
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         // Обработка ошибок валидации полей
@@ -748,7 +748,7 @@ export const handleBulkProductUpdateRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -762,7 +762,7 @@ export const handleProductDeleteRequest = async (req, res, next) => {
     const productId = req.params.productId;
 
     if (!typeCheck.objectId(productId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: productId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: productId' });
     }
 
     try {
@@ -778,14 +778,14 @@ export const handleProductDeleteRequest = async (req, res, next) => {
             return dbProduct;
         });
 
-        safeSendResponse(req, res, 200, { message: `Товар "${dbProduct.name}" успешно удалён` });
+        safeSendResponse(res, 200, { message: `Товар "${dbProduct.name}" успешно удалён` });
 
         // Удаление файлов фотографий товара, если они были (безопасно)
         storageService.cleanupProductFiles(productId, reqCtx);
     } catch (err) {
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         next(err);
@@ -800,14 +800,14 @@ export const handleBulkProductDeleteRequest = async (req, res, next) => {
     const { productIds } = req.body ?? {};
 
     if (!typeCheck.arrayOf(productIds, 'objectId', typeCheck) ) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: productIds' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: productIds' });
     }
 
     const uniqueProductIds = [...new Set(productIds)];
     const total = uniqueProductIds.length;
 
     if (!total) {
-        return safeSendResponse(req, res, 400, {
+        return safeSendResponse(res, 400, {
             message: 'Товары для удаления не выбраны',
             reason: REQUEST_STATUS.NO_SELECTION
         });
@@ -848,14 +848,14 @@ export const handleBulkProductDeleteRequest = async (req, res, next) => {
             };
         });
 
-        safeSendResponse(req, res, statusCode, responseData);
+        safeSendResponse(res, statusCode, responseData);
 
         // Удаление файлов фотографий товара, если они были (безопасно)
         cleanupBulkProductFiles(uniqueProductIds, reqCtx);
     } catch (err) {
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
 
             // Удаление файлов фотографий товара, если они были (безопасно)
             if (err.statusCode === 404) cleanupBulkProductFiles(uniqueProductIds, reqCtx);

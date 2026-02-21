@@ -11,7 +11,7 @@ import {
     CARD_ONLINE_PROVIDER
 } from './constants.js';
 
-/// Валидация полей формы ///
+/// Валидации полей форм ///
 const userNameValidation = /^[\wа-яА-ЯёЁ.-][\wа-яА-ЯёЁ\s.-]{1,28}[\wа-яА-ЯёЁ.-]$/;
 const emailValidation = /^[a-zA-Z0-9]([a-zA-Z0-9_.-]*[a-zA-Z0-9])?@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$/;
 const passwordValidation = /^(?=.*[a-zA-Z])(?=.*\d)[a-zA-Z0-9@#$%^&*!?-]{8,30}$/;
@@ -84,6 +84,7 @@ const expiryDateValidation = (val, context = {}) => {
     return true;
 };
 
+/// Объект с правилами валидаций для полей каждой сущности ///
 export const validationRules = {
     auth: {
         name: userNameValidation,

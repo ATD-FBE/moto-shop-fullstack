@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import UpdateHistoryItemSchema from './schemas/UpdateHistoryItemSchema.js';
-import { validationRules } from '../../../shared/validation.js';
+import { validationRules } from '../../../shared/fieldRules.js';
 import { NOTIFICATION_STATUS } from '../../../shared/constants.js';
 
 const { Schema } = mongoose;

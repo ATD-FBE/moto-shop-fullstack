@@ -12,7 +12,7 @@ import { getTokenExpiryFromCookie } from '../utils/token.js';
 import { normalizeInputDataToNull } from '../utils/normalizeUtils.js';
 import { isDbDataModified } from '../utils/compareUtils.js';
 import safeSendResponse from '../utils/safeSendResponse.js';
-import { validationRules, fieldErrorMessages } from '../../shared/validation.js';
+import { validationRules, fieldErrorMessages } from '../../shared/fieldRules.js';
 import { DELIVERY_METHOD, SERVER_CONSTANTS } from '../../shared/constants.js';
 
 const { TOKEN_COOKIE_OPTIONS, ACCESS_TOKEN_MAX_AGE, REFRESH_TOKEN_MAX_AGE } = SERVER_CONSTANTS;
@@ -36,15 +36,15 @@ export const handleAuthRegistrationRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     for (const { id, quantity } of guestCart) {
         if (!typeCheck.objectId(id) || !Number.isInteger(quantity) || quantity < 0) {
-            return safeSendResponse(req, res, 400, { message: 'Неверный формат данных в guestCart' });
+            return safeSendResponse(res, 400, { message: 'Неверный формат данных в guestCart' });
         }
     }
 
@@ -86,7 +86,7 @@ export const handleAuthRegistrationRequest = async (req, res, next) => {
         res.cookie('refreshToken', refreshToken, { ...TOKEN_COOKIE_OPTIONS, maxAge: REFRESH_TOKEN_MAX_AGE });
         
         // Отправка ответа клиенту
-        safeSendResponse(req, res, 201, {
+        safeSendResponse(res, 201, {
             message: 'Регистрация прошла успешно',
             accessTokenExp,
             refreshTokenExp,
@@ -99,7 +99,7 @@ export const handleAuthRegistrationRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -125,15 +125,15 @@ export const handleAuthLoginRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     for (const { id, quantity } of guestCart) {
         if (!typeCheck.objectId(id) || !Number.isInteger(quantity) || quantity < 0) {
-            return safeSendResponse(req, res, 400, { message: 'Неверный формат данных в guestCart' });
+            return safeSendResponse(res, 400, { message: 'Неверный формат данных в guestCart' });
         }
     }
 
@@ -155,7 +155,7 @@ export const handleAuthLoginRequest = async (req, res, next) => {
     });
 
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: INVALID_AUTH_MSG, fieldErrors });
+        return safeSendResponse(res, 422, { message: INVALID_AUTH_MSG, fieldErrors });
     }
 
     // Проверка данных пользователя в базе MongoDB
@@ -209,7 +209,7 @@ export const handleAuthLoginRequest = async (req, res, next) => {
             res.clearCookie('refreshToken', TOKEN_COOKIE_OPTIONS);
         }
 
-        safeSendResponse(req, res, 200, {
+        safeSendResponse(res, 200, {
             message: 'Авторизация прошла успешно',
             accessTokenExp,
             refreshTokenExp,
@@ -217,7 +217,7 @@ export const handleAuthLoginRequest = async (req, res, next) => {
         });
     } catch (err) {
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         next(err);
@@ -230,7 +230,7 @@ export const handleAuthUserUpdateRequest = async (req, res, next) => {
     const { newName, newEmail, currentPassword, newPassword } = req.body ?? {};
 
     if ([newName, newEmail, newPassword].every(field => field === undefined)) {
-        return safeSendResponse(req, res, 204);
+        return safeSendResponse(res, 204);
     }
 
     const inputTypeMap = {
@@ -244,10 +244,10 @@ export const handleAuthUserUpdateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
     
     const dbUser = req.dbUser;
@@ -379,7 +379,7 @@ export const handleAuthUserUpdateRequest = async (req, res, next) => {
             }
         })();
         
-        safeSendResponse(req, res, statusCode, {
+        safeSendResponse(res, statusCode, {
             ...(statusCode !== 204 && {
                 message,
                 fieldErrors
@@ -391,7 +391,7 @@ export const handleAuthUserUpdateRequest = async (req, res, next) => {
         });
     } catch (err) {
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         next(err);
@@ -404,12 +404,12 @@ export const handleAuthSessionRequest = async (req, res, next) => {
     const { guestCart } = req.body ?? {};
 
     if (!typeCheck.arrayOf(guestCart, 'object', typeCheck)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: guestCart' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: guestCart' });
     }
 
     for (const { id, quantity } of guestCart) {
         if (!typeCheck.objectId(id) || !Number.isInteger(quantity) || quantity < 0) {
-            return safeSendResponse(req, res, 400, { message: 'Неверный формат данных в guestCart' });
+            return safeSendResponse(res, 400, { message: 'Неверный формат данных в guestCart' });
         }
     }
 
@@ -434,7 +434,7 @@ export const handleAuthSessionRequest = async (req, res, next) => {
                 ? '. Корзины успешно объединены, приоритет количества товаров — у гостевой.'
                 : '');
 
-        safeSendResponse(req, res, 200, { message, accessTokenExp, refreshTokenExp, ...sessionData });
+        safeSendResponse(res, 200, { message, accessTokenExp, refreshTokenExp, ...sessionData });
     } catch (err) {
         next(err);
     }
@@ -442,7 +442,7 @@ export const handleAuthSessionRequest = async (req, res, next) => {
 
 /// Проверка токена доступа ///
 export const handleAuthCheckRequest = (req, res) => {
-    safeSendResponse(req, res, 200, { message: 'Токен доступа валидный' });
+    safeSendResponse(res, 200, { message: 'Токен доступа валидный' });
 };
 
 /// Обновление токена доступа ///
@@ -451,7 +451,7 @@ export const handleAuthRefreshRequest = async (req, res, next) => {
         const refreshToken = req.cookies.refreshToken;
         
         if (!refreshToken) {
-            return safeSendResponse(req, res, 401, { message: 'Токен обновления отсутствует' });
+            return safeSendResponse(res, 401, { message: 'Токен обновления отсутствует' });
         }
 
         const accessTokenExp = Date.now() + ACCESS_TOKEN_MAX_AGE;
@@ -460,16 +460,16 @@ export const handleAuthRefreshRequest = async (req, res, next) => {
         const accessToken = generateToken(user, 'access');
         res.cookie('accessToken', accessToken, { ...TOKEN_COOKIE_OPTIONS, maxAge: ACCESS_TOKEN_MAX_AGE });
         
-        safeSendResponse(req, res, 200, { message: 'Токен доступа обновлён', accessTokenExp });
+        safeSendResponse(res, 200, { message: 'Токен доступа обновлён', accessTokenExp });
     } catch (err) {
         if (err instanceof jwt.TokenExpiredError) {
-            return safeSendResponse(req, res, 401, { message: 'Срок действия токена обновления истёк' });
+            return safeSendResponse(res, 401, { message: 'Срок действия токена обновления истёк' });
         }
         if (err instanceof jwt.JsonWebTokenError) {
-            return safeSendResponse(req, res, 401, { message: 'Неверный токен обновления' });
+            return safeSendResponse(res, 401, { message: 'Неверный токен обновления' });
         }
         if (err instanceof jwt.NotBeforeError) {
-            return safeSendResponse(req, res, 401, { message: 'Токен обновления ещё не активен' });
+            return safeSendResponse(res, 401, { message: 'Токен обновления ещё не активен' });
         }
 
         next(err);
@@ -478,7 +478,7 @@ export const handleAuthRefreshRequest = async (req, res, next) => {
 
 /// Загрузка настроек заказа ///
 export const handleAuthCheckoutPrefsRequest = async (req, res) => {
-    safeSendResponse(req, res, 200, {
+    safeSendResponse(res, 200, {
         message: 'Настройки заказа успешно загружены',
         checkoutPrefs: req.dbUser.checkoutPrefs
     });
@@ -518,10 +518,10 @@ export const handleAuthCheckoutPrefsUpdateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     // Проверка на согласованность данных для метода курьерской доставки
@@ -529,7 +529,7 @@ export const handleAuthCheckoutPrefsUpdateRequest = async (req, res, next) => {
     const isAllowCourierExtra = allowCourierExtra !== undefined;
     
     if ((isCourierMethod && !isAllowCourierExtra) || (!isCourierMethod && isAllowCourierExtra)) {
-        return safeSendResponse(req, res, 400, { message: 'Несогласованные данные для метода доставки' });
+        return safeSendResponse(res, 400, { message: 'Несогласованные данные для метода доставки' });
     }
 
     // Создание и форматирование настроек заказа
@@ -548,7 +548,7 @@ export const handleAuthCheckoutPrefsUpdateRequest = async (req, res, next) => {
 
     // Проверка на изменение полей
     if (!isDbDataModified(oldCheckoutPrefs, newCheckoutPrefs)) {
-        return safeSendResponse(req, res, 204);
+        return safeSendResponse(res, 204);
     }
     
     try {
@@ -559,14 +559,14 @@ export const handleAuthCheckoutPrefsUpdateRequest = async (req, res, next) => {
             checkTimeout(req);
         });
 
-        safeSendResponse(req, res, 200, { message: 'Настройки заказа обновлены' });
+        safeSendResponse(res, 200, { message: 'Настройки заказа обновлены' });
     } catch (err) {
         if (err.name === 'ValidationError') {
             const { unknownFieldError, fieldErrors } = parseValidationErrors(err, 'checkout');
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -580,7 +580,7 @@ export const handleAuthLogoutRequest = async (req, res, next) => {
         res.clearCookie('accessToken', TOKEN_COOKIE_OPTIONS);
         res.clearCookie('refreshToken', TOKEN_COOKIE_OPTIONS);
         
-        safeSendResponse(req, res, 200, { message: 'Выход выполнен' });
+        safeSendResponse(res, 200, { message: 'Выход выполнен' });
     } catch (err) {
         next(err);
     }

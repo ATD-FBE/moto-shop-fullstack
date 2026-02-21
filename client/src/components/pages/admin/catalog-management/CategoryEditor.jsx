@@ -9,7 +9,7 @@ import { openAlertModal } from '@/services/modalAlertService.js';
 import { sendCategoryDeleteRequest } from '@/api/categoryRequests.js';
 import { pluralize } from '@/helpers/textHelpers.js';
 import { logRequestStatus } from '@/helpers/requestLogger.js';
-import { CLIENT_CONSTANTS } from '@shared/constants.js';
+import { UNSORTED_CATEGORY_SLUG, CLIENT_CONSTANTS } from '@shared/constants.js';
 
 const { REQUEST_STATUS, NO_VALUE_LABEL } = CLIENT_CONSTANTS;
  
@@ -36,7 +36,7 @@ export default function CategoryEditor({
         [selectedCategoryId, categoryMap]
     );
     const unsortedCategory = useMemo(
-        () => categoryTree.find(cat => cat.slug === 'unsorted'),
+        () => categoryTree.find(cat => cat.slug === UNSORTED_CATEGORY_SLUG),
         [categoryTree]
     );
 

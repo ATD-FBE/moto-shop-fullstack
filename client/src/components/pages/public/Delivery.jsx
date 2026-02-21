@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatCurrency } from '@/helpers/textHelpers.js';
-import { MIN_ORDER_AMOUNT, COMPANY_DETAILS, WORKING_HOURS } from '@shared/constants.js';
+import { MIN_ORDER_AMOUNT } from '@shared/constants.js';
+import { COMPANY_DETAILS, WORKING_HOURS } from '@shared/company.js';
  
 export default function Delivery() {
     const openWorkingHoursText = WORKING_HOURS

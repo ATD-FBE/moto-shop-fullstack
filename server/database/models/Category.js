@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import uniqueValidator from 'mongoose-unique-validator';
-import { validationRules } from '../../../shared/validation.js';
+import { validationRules } from '../../../shared/fieldRules.js';
+import { UNSORTED_CATEGORY_SLUG } from '../../../shared/constants.js';
 
 const { Schema } = mongoose;
 
@@ -35,7 +36,7 @@ const CategorySchema = new Schema({
 
 // Запрет удаления категории "Неотсортированные товары" ("unsorted")
 CategorySchema.pre('remove', function(next) {
-    if (this.slug === 'unsorted') {
+    if (this.slug === UNSORTED_CATEGORY_SLUG) {
         return next(new Error(`Категорию ${this.name} удалять нельзя.`));
     }
 

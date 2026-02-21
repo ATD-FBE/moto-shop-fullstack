@@ -8,7 +8,7 @@ import { updateUser } from '@/redux/slices/authSlice.js';
 import { saveUserToLocalStorage } from '@/services/authService.js';
 import { logRequestStatus } from '@/helpers/requestLogger.js';
 import { CLIENT_CONSTANTS } from '@shared/constants.js';
-import { validationRules, fieldErrorMessages } from '@shared/validation.js';
+import { validationRules, fieldErrorMessages } from '@shared/fieldRules.js';
 
 const { FORM_STATUS, BASE_SUBMIT_STATES, FIELD_UI_STATUS, SUCCESS_DELAY } = CLIENT_CONSTANTS;
 

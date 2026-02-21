@@ -15,7 +15,7 @@ import { parseRouteParams } from '@/helpers/routeHelpers.js';
 import { processFormattedFieldDeletion, calcFormattedFieldCursorPos } from '@/helpers/formHelpers.js';
 import { toKebabCase, getFieldInfoClass } from '@/helpers/textHelpers.js';
 import { logRequestStatus } from '@/helpers/requestLogger.js';
-import { validationRules, fieldErrorMessages } from '@shared/validation.js';
+import { validationRules, fieldErrorMessages } from '@shared/fieldRules.js';
 import {
     CARD_ONLINE_PROVIDER_OPTIONS,
     resolveRequestStatus,

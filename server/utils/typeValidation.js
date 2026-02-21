@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { fieldErrorMessages } from '../../shared/validation.js';
+import { fieldErrorMessages } from '../../shared/fieldRules.js';
 
 const baseTypeChecks = {
     string: val => typeof val === 'string',

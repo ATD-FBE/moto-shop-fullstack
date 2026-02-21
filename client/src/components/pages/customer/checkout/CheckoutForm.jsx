@@ -23,7 +23,7 @@ import {
 } from '@/helpers/textHelpers.js';
 import generateSlug from '@/helpers/generateSlug.js';
 import { logRequestStatus } from '@/helpers/requestLogger.js';
-import { validationRules, fieldErrorMessages } from '@shared/validation.js';
+import { validationRules, fieldErrorMessages } from '@shared/fieldRules.js';
 import {
     CLIENT_CONSTANTS,
     DELIVERY_METHOD,

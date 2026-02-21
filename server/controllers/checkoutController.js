@@ -43,7 +43,7 @@ export const handleOrderDraftRequest = async (req, res, next) => {
     const orderId = req.params.orderId;
 
     if (!typeCheck.objectId(orderId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: orderId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: orderId' });
     }
 
     try {
@@ -185,11 +185,11 @@ export const handleOrderDraftRequest = async (req, res, next) => {
             };
         });
 
-        safeSendResponse(req, res, statusCode, responseData);
+        safeSendResponse(res, statusCode, responseData);
     } catch (err) {
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         next(err);
@@ -206,7 +206,7 @@ export const handleOrderDraftCreateRequest = async (req, res, next) => {
     const { cartProductSnapshots } = req.body ?? {};
 
     if (!typeCheck.array(cartProductSnapshots) || !cartProductSnapshots.length) {
-        return safeSendResponse(req, res, 400, {
+        return safeSendResponse(res, 400, {
             message: 'Неверный формат данных: cartProductSnapshots'
         });
     }
@@ -229,7 +229,7 @@ export const handleOrderDraftCreateRequest = async (req, res, next) => {
             !typeCheck.string(appliedDiscountSourceSnapshot) ||
             !DISCOUNT_SOURCES.includes(appliedDiscountSourceSnapshot)
         ) {
-            return safeSendResponse(req, res, 400, {
+            return safeSendResponse(res, 400, {
                 message: 'Неверный формат данных: cartProductSnapshots'
             });
         }
@@ -420,7 +420,7 @@ export const handleOrderDraftCreateRequest = async (req, res, next) => {
         });
 
         // Черновик заказа создан - ответ клиенту об успехе
-        safeSendResponse(req, res, statusCode, responseData);
+        safeSendResponse(res, statusCode, responseData);
     } catch (err) {
         next(err);
     }
@@ -464,10 +464,10 @@ export const handleOrderDraftUpdateRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     // Заполнение данных только для пришедших полей через дот-нотационные названия полей
@@ -478,7 +478,7 @@ export const handleOrderDraftUpdateRequest = async (req, res, next) => {
     );
 
     if (!Object.keys(updateFields).length) {
-        return safeSendResponse(req, res, 204);
+        return safeSendResponse(res, 204);
     }
     
     try {
@@ -511,10 +511,10 @@ export const handleOrderDraftUpdateRequest = async (req, res, next) => {
             checkTimeout(req);
         });
 
-        safeSendResponse(req, res, 200, { message: `Черновик заказа ${orderLbl} обновлён` });
+        safeSendResponse(res, 200, { message: `Черновик заказа ${orderLbl} обновлён` });
     } catch (err) {
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         next(err);
@@ -562,10 +562,10 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
 
     if (invalidInputKeys.length > 0) {
         const invalidKeysStr = invalidInputKeys.join(', ');
-        return safeSendResponse(req, res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
+        return safeSendResponse(res, 400, { message: `Неверный формат данных: ${invalidKeysStr}` });
     }
     if (Object.keys(fieldErrors).length > 0) {
-        return safeSendResponse(req, res, 422, { message: 'Неверный формат данных', fieldErrors });
+        return safeSendResponse(res, 422, { message: 'Неверный формат данных', fieldErrors });
     }
 
     // Проверка на согласованность данных для метода курьерской доставки
@@ -573,7 +573,7 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
     const isAllowCourierExtra = allowCourierExtra !== undefined;
     
     if ((isCourierMethod && !isAllowCourierExtra) || (!isCourierMethod && isAllowCourierExtra)) {
-        return safeSendResponse(req, res, 400, { message: 'Несогласованные данные для метода доставки' });
+        return safeSendResponse(res, 400, { message: 'Несогласованные данные для метода доставки' });
     }
 
     let confirmedOrderId;
@@ -837,14 +837,14 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
         sseOrderManagement.sendToAllClients({ newManagedActiveOrdersCount: 1 });
 
         // Отправка ответа заказчику
-        safeSendResponse(req, res, statusCode, responseData);
+        safeSendResponse(res, statusCode, responseData);
     } catch (err) {
         // Очистка файлов миниатюр товаров в заказе (безопасно)
         storageService.cleanupOrderFiles(confirmedOrderId, reqCtx);
 
         // Обработка контролируемой ошибки
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         // Обработка ошибок валидации полей при сохранении в MongoDB
@@ -853,7 +853,7 @@ export const handleOrderDraftConfirmRequest = async (req, res, next) => {
             if (unknownFieldError) return next(unknownFieldError);
         
             if (fieldErrors) {
-                return safeSendResponse(req, res, 422, { message: 'Некорректные данные', fieldErrors });
+                return safeSendResponse(res, 422, { message: 'Некорректные данные', fieldErrors });
             }
         }
 
@@ -867,7 +867,7 @@ export const handleOrderDraftDeleteRequest = async (req, res, next) => {
     const orderId = req.params.orderId;
 
     if (!typeCheck.objectId(orderId)) {
-        return safeSendResponse(req, res, 400, { message: 'Неверный формат данных: orderId' });
+        return safeSendResponse(res, 400, { message: 'Неверный формат данных: orderId' });
     }
 
     try {
@@ -898,10 +898,10 @@ export const handleOrderDraftDeleteRequest = async (req, res, next) => {
             checkTimeout(req);
         });
 
-        safeSendResponse(req, res, 200, { message: `Черновик заказа ${orderLbl} успешно удалён` });
+        safeSendResponse(res, 200, { message: `Черновик заказа ${orderLbl} успешно удалён` });
     } catch (err) {
         if (err.isAppError) {
-            return safeSendResponse(req, res, err.statusCode, prepareAppErrorData(err));
+            return safeSendResponse(res, err.statusCode, prepareAppErrorData(err));
         }
 
         next(err);

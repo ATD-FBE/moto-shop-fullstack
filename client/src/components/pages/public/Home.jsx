@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import TrackedImage from '@/components/common/TrackedImage.jsx';
 import { routeConfig } from '@/config/appRouting.js';
 import { formatCurrency } from '@/helpers/textHelpers.js';
-import { MIN_ORDER_AMOUNT, WORKING_HOURS } from '@shared/constants.js';
+import { MIN_ORDER_AMOUNT } from '@shared/constants.js';
+import { WORKING_HOURS } from '@shared/company.js';
  
 export default function Home() {
     const [search, setSearch] = useState('');

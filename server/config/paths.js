@@ -12,9 +12,14 @@ export const CONFIG_PATH = join(SERVER_ROOT, CONFIG_FOLDER);
 
 export const PROJECT_ROOT = join(SERVER_ROOT, '..');
 
-export const CLIENT_ROOT = join(PROJECT_ROOT, 'client');
+export const CLIENT_FOLDER = 'client';
+export const CLIENT_ROOT = join(PROJECT_ROOT, CLIENT_FOLDER);
 
-export const BUILD_ROOT = join(CLIENT_ROOT, 'build');
+export const PUBLIC_FOLDER = 'public';
+export const PUBLIC_PATH = join(CLIENT_ROOT, PUBLIC_FOLDER);
+
+export const BUILD_FOLDER = 'build'
+export const BUILD_PATH = join(CLIENT_ROOT, BUILD_FOLDER);
 
 export const STORAGE_FOLDER = 'storage';
 export const STORAGE_ROOT = join(PROJECT_ROOT, STORAGE_FOLDER);

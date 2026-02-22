@@ -3,19 +3,19 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import config from '../config/config.js';
 import s3Client from '../config/s3Client.js';
-import { BUILD_ROOT, STORAGE_ROOT } from '../config/paths.js';
+import { PUBLIC_PATH, BUILD_PATH, STORAGE_ROOT } from '../config/paths.js';
 import { SERVER_CONSTANTS } from '../../shared/constants.js';
 
 const { STORAGE_TYPE } = SERVER_CONSTANTS;
 
-export const serveReactApp = (req, res, next) => {
-    if (config.env !== 'production') return next();
-    return res.sendFile(join(BUILD_ROOT, 'index.html'));
+export const serveBuildFiles = (express) => {
+    if (config.env !== 'production') return (req, res, next) => next();
+    return express.static(BUILD_PATH); 
 };
 
-export const serveStaticFiles = (express) => {
+export const servePublicFiles = (express) => {
     if (config.env !== 'production') return (req, res, next) => next();
-    return express.static(BUILD_ROOT);
+    return express.static(PUBLIC_PATH);
 };
 
 export const serveStorageFiles = async (req, res, next) => {
@@ -32,7 +32,7 @@ export const serveStorageFiles = async (req, res, next) => {
 
     if (config.storage.type === STORAGE_TYPE.S3) {
         try {
-            const command = new GetObjectCommand({
+            const getCommand = new GetObjectCommand({
                 Bucket: config.storage.bucket,
                 Key: storageKey,
             });
@@ -40,7 +40,7 @@ export const serveStorageFiles = async (req, res, next) => {
             switch (config.storage.bucketType) {
                 case 'public': {
                     // Получение потока данных с хранилища s3
-                    const response = await s3Client.send(command);
+                    const response = await s3Client.send(getCommand);
                     const stream = response.Body;
                     
                     // Установка заголовков на сервере
@@ -54,7 +54,7 @@ export const serveStorageFiles = async (req, res, next) => {
     
                 case 'private': {
                     // Генерирация ссылки, действующей 1 час
-                    const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+                    const signedUrl = await getSignedUrl(s3Client, getCommand, { expiresIn: 3600 });
 
                     // Скачивание файла с s3 напрямую по подписанному URL
                     return res.redirect(signedUrl);
@@ -72,4 +72,9 @@ export const serveStorageFiles = async (req, res, next) => {
             next(err);
         }
     }
+};
+
+export const serveReactApp = (req, res, next) => {
+    if (config.env !== 'production') return next();
+    return res.sendFile(join(PUBLIC_PATH, 'index.html'));
 };

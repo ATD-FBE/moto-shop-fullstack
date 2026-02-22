@@ -4,7 +4,7 @@ import { PROJECT_ROOT, CLIENT_ROOT } from './server/config/paths.js';
 import config from './server/config/config.js';
 
 export default {
-    mode: ['production', 'development', 'none'].includes(config.env) ? config.env : 'development',
+    mode: ['production', 'development'].includes(config.env) ? config.env : 'development',
     entry: './client/src/app.jsx',
     output: {
         path: join(CLIENT_ROOT, 'build'),
@@ -34,9 +34,9 @@ export default {
         allowedHosts: 'all', // Для подключения с других хостов
         client: {
             webSocketURL: {
-                hostname: config.host, // 192.168.0.100
+                hostname: config.host,
                 port: config.clientPort,
-                protocol: 'ws', // Или 'wss', если https
+                protocol: config.protocol === 'https' ? 'wss' : 'ws'
             }
         }
     },

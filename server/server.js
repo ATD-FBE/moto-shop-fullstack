@@ -6,14 +6,19 @@ import fs from 'fs';
 // Библиотеки третьих сторон
 import express from 'express';
 import cookieParser from 'cookie-parser';
-import cors from 'cors';
 
 // Мидлвэары
 import { requestContext } from './middlewares/requestContextMiddleware.js';
 import { errorTracker, globalErrorHandler } from './middlewares/errorMiddleware.js';
-import { serveStaticFiles, serveStorageFiles, serveReactApp } from './middlewares/fileMiddleware.js';
-import { requestTimeout as reqTimeout } from './middlewares/timeoutMiddleware.js';
 import { disableCache } from './middlewares/authMiddleware.js';
+import {
+    serveBuildFiles,
+    servePublicFiles,
+    serveStorageFiles,
+    serveReactApp
+} from './middlewares/fileMiddleware.js';
+import { requestTimeout as reqTimeout } from './middlewares/timeoutMiddleware.js';
+import { sseCorsMiddleware } from './middlewares/sseMiddleware.js';
 
 // Роутеры
 import companyRouter from './routes/companyRouter.js';
@@ -47,19 +52,10 @@ const apiRouter = express.Router();
 const ENV = config.env;
 const PROTOCOL = config.protocol;
 const HOST = config.host;
-const CLIENT_PORT = config.clientPort;
 const SERVER_PORT = config.serverPort;
 
-const sseCorsOptions = {
-    origin: ENV === 'production'
-        ? `${PROTOCOL}://${HOST}:${SERVER_PORT}`
-        : `${PROTOCOL}://${HOST}:${CLIENT_PORT}`,
-    methods: ['GET'],
-    allowedHeaders: ['Content-Type'],
-    credentials: true
-};
-
-app.use(serveStaticFiles(express)); // Работает в продакшне
+app.use('/build', serveBuildFiles(express)); // Работает в продакшне
+app.use(servePublicFiles(express)); // Работает в продакшне
 app.get(`${STORAGE_URL_PATH}/*`, serveStorageFiles);
 
 app.use(requestContext);
@@ -80,7 +76,7 @@ apiRouter.use('/checkout/draft-orders', reqTimeout(30000), checkoutRouter);
 apiRouter.use('/orders', reqTimeout(30000), orderRouter);
 app.use('/api', apiRouter);
 
-app.use('/sse', cors(sseCorsOptions), sseRouter);
+app.use('/sse', sseCorsMiddleware, sseRouter);
 app.get('*', serveReactApp); // Работает в продакшне
 app.use(globalErrorHandler);
 
@@ -97,7 +93,7 @@ process.on('unhandledRejection', (reason) => {
 process.on('exit', () => log.info('Process exit'));
 
 const createServer = (protocol, host) => {
-    if (protocol === 'https') {
+    if (protocol === 'https' && ENV !== 'production') {
         const keyPath = `./certs/${host}-key.pem`;
         const certPath = `./certs/${host}.pem`;
 

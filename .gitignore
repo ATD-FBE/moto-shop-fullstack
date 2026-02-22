@@ -1,5 +1,6 @@
-/node_modules
-/_logs
-/storage
+/_logs/
+/node_modules/
+/client/build/
 /server/config/.env*
+/storage/
 /*.txt

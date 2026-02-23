@@ -38,6 +38,8 @@
         "react-spinners": "^0.15.0",
         "redux": "^5.0.1",
         "sharp": "^0.34.2",
+        "webpack": "^5.105.2",
+        "webpack-cli": "^6.0.1",
         "winston": "^3.17.0"
     },
     "devDependencies": {
@@ -60,8 +62,6 @@
         "sass": "^1.83.4",
         "sass-loader": "^16.0.5",
         "style-loader": "^4.0.0",
-        "webpack": "^5.97.1",
-        "webpack-cli": "6.0.1",
         "webpack-dev-server": "^5.2.3"
     },
     "scripts": {
@@ -69,7 +69,7 @@
         "test": "cross-env NODE_ENV=testing concurrently \"nodemon server/server.js\" \"npm run dev\" \"npm run ngrok:test\"",
         "prod": "cross-env NODE_ENV=production node server/server.js",
         "dev": "webpack serve",
-        "build": "cross-env NODE_ENV=production npx webpack-cli --mode production",
+        "build": "cross-env NODE_ENV=production webpack-cli --mode production",
         "ngrok:dev": "env-cmd -f server/config/.env.development --use-shell \"cmd /c ngrok http %SERVER_PORT%\"",
         "ngrok:test": "env-cmd -f server/config/.env.testing --use-shell \"cmd /c ngrok http %HOST%:%SERVER_PORT%\""
     }

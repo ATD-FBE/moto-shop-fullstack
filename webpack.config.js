@@ -5,7 +5,7 @@ import config from './server/config/config.js';
 
 export default {
     mode: ['production', 'development'].includes(config.env) ? config.env : 'development',
-    entry: './client/src/app.jsx',
+    entry: './client/src/App.jsx',
     output: {
         path: join(CLIENT_ROOT, 'build'),
         publicPath: '/build/',

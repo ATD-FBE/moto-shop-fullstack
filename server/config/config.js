@@ -70,6 +70,7 @@ export default {
     env: environment,
     protocol: process.env.PROTOCOL || 'http',
     host: process.env.HOST || 'localhost',
+    domain: process.env.DOMAIN || 'localhost',
     clientPort: process.env.CLIENT_PORT || 3000,
     serverPort: process.env.PORT || process.env.SERVER_PORT || 3001,
     jwt: {

@@ -69,7 +69,7 @@
         "test": "cross-env NODE_ENV=testing concurrently \"nodemon server/server.js\" \"npm run dev\" \"npm run ngrok:test\"",
         "prod": "cross-env NODE_ENV=production node server/server.js",
         "dev": "webpack serve",
-        "build": "cross-env NODE_ENV=production npx webpack",
+        "build": "cross-env NODE_ENV=production npx webpack-cli --mode production",
         "ngrok:dev": "env-cmd -f server/config/.env.development --use-shell \"cmd /c ngrok http %SERVER_PORT%\"",
         "ngrok:test": "env-cmd -f server/config/.env.testing --use-shell \"cmd /c ngrok http %HOST%:%SERVER_PORT%\""
     }

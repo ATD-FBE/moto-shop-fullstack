@@ -12,6 +12,15 @@ export const CONFIG_PATH = join(SERVER_ROOT, CONFIG_FOLDER);
 
 export const PROJECT_ROOT = join(SERVER_ROOT, '..');
 
+export const LOG_FOLDER = '_logs';
+export const LOG_ROOT = join(PROJECT_ROOT, LOG_FOLDER);
+
+export const LOG_COMBINED_FILE = 'combined.log';
+export const LOG_COMBINED_FILE_PATH = join(LOG_ROOT, LOG_COMBINED_FILE);
+
+export const LOG_ERROR_FILE = 'error.log';
+export const LOG_ERROR_FILE_PATH = join(LOG_ROOT, LOG_ERROR_FILE);
+
 export const CLIENT_FOLDER = 'client';
 export const CLIENT_ROOT = join(PROJECT_ROOT, CLIENT_FOLDER);
 

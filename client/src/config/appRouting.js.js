@@ -16,6 +16,7 @@ import LoginForm from '@/components/pages/auth/LoginForm.jsx';
 import RegistrationForm from '@/components/pages/auth/RegistrationForm.jsx';
 import Personal from '@/components/pages/shared/Personal.jsx';
 import Profile from '@/components/pages/shared/Profile.jsx';
+import ErrorLogs from '@/components/pages/admin/ErrorLogs.jsx';
 import CatalogManagement from '@/components/pages/admin/CatalogManagement.jsx';
 import NotificationManagement from '@/components/pages/admin/NotificationManagement.jsx';
 import OrderManagement from '@/components/pages/admin/OrderManagement.jsx';
@@ -216,6 +217,14 @@ export const routeConfig = {
         parent: 'adminPersonal',
         component: Profile,
         nav: { map: 'adminPersonal', order: 0 }
+    },
+    adminErrorLogs: {
+        label: 'Логи ошибок',
+        paths: ['/admin/errors'],
+        access: 'admin',
+        parent: 'adminPersonal',
+        component: ErrorLogs,
+        nav: { map: 'adminPersonal', order: 1 }
     },
 
     // Конфиги для пользователей с ролью customer

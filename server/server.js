@@ -21,6 +21,7 @@ import { requestTimeout as reqTimeout } from './middlewares/timeoutMiddleware.js
 import { sseCorsMiddleware } from './middlewares/sseMiddleware.js';
 
 // Роутеры
+import logRouter from './routes/logRouter.js';
 import companyRouter from './routes/companyRouter.js';
 import authRouter from './routes/authRouter.js';
 import newsRouter from './routes/newsRouter.js';
@@ -63,6 +64,7 @@ app.use(errorTracker);
 app.use(cookieParser());
 app.use(express.json());
 
+apiRouter.use('/logs', reqTimeout(15000), logRouter);
 apiRouter.use('/company', reqTimeout(15000), companyRouter);
 apiRouter.use('/auth', reqTimeout(15000), disableCache, authRouter);
 apiRouter.use('/news', reqTimeout(15000), newsRouter);

@@ -1,4 +1,5 @@
 import winston from 'winston';
+import { LOG_COMBINED_FILE_PATH, LOG_ERROR_FILE_PATH } from '../config/paths.js';
 
 const prepareInfo = (info) => {
     const { timestamp, level, message, stack, ...meta } = info;
@@ -23,10 +24,10 @@ const loggerConfig = {
 
     transports: [
         ...(process.env.NODE_ENV !== 'production'
-            ? [new winston.transports.File({ filename: '_logs/combined.log' })]
+            ? [new winston.transports.File({ filename: LOG_COMBINED_FILE_PATH })]
             : []),
         new winston.transports.File({
-            filename: '_logs/error.log',
+            filename: LOG_ERROR_FILE_PATH,
             level: 'error'
         }),
         new winston.transports.Console({

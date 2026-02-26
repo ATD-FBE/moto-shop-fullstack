@@ -6201,6 +6201,37 @@ main {
     }
 }
 
+.error-logs-page {
+    display: flex;
+    flex-direction: column;
+    width: 80%;
+
+    .error-logs-header {
+        @include main-content-header($header-content-min-height-large, $background-color-header);
+    }
+
+    .error-logs-main {
+        flex: 1; // Растягивает контейнер по высоте на всё свободное пространство
+        margin-top: $main-content-spacing;
+        padding: $main-content-spacing;
+        border: 2px solid $color-warn-dark;
+        border-radius: 8px;
+        background-color: rgba($color-main-light, 0.7);
+
+        .error-logs-load-status {
+            @include load-status-overlay();
+        }
+
+        .error-logs-output {
+            color: $color-main-dark;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12pt;
+            white-space: pre-wrap; // Сохранение форматирования из файла и разрешение на перенос слов
+            overflow-wrap: break-word; // Перенос длинных слов
+        }
+    }
+}
+
 .checkout-preferences-page {
     display: flex;
     flex-direction: column;
@@ -8051,6 +8082,10 @@ main {
         .profile-form {
             width: 50%;
         }
+    }
+
+    .error-logs-page {
+        width: 100%;
     }
 
     .checkout-preferences-page {

@@ -59,6 +59,8 @@ app.use('/build', serveBuildFiles(express)); // Работает в продак
 app.use(servePublicFiles(express)); // Работает в продакшне
 app.get(`${STORAGE_URL_PATH}/*`, serveStorageFiles);
 
+app.set('trust proxy', true); // Для определения IP адреса в requestContext
+
 app.use(requestContext);
 app.use(errorTracker);
 app.use(cookieParser());

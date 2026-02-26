@@ -53,6 +53,7 @@ const apiRouter = express.Router();
 const ENV = config.env;
 const PROTOCOL = config.protocol;
 const HOST = config.host;
+const DOMAIN = config.domain;
 const SERVER_PORT = config.serverPort;
 
 app.use('/build', serveBuildFiles(express)); // Работает в продакшне
@@ -126,7 +127,7 @@ const startServer = async () => {
         const server = createServer(PROTOCOL, HOST);
 
         server.listen(SERVER_PORT, HOST, () => {
-            log.info(`Сервер запущен по адресу: ${PROTOCOL}://${HOST}:${SERVER_PORT}`);
+            log.info(`Сервер запущен по адресу: ${PROTOCOL}://${DOMAIN}:${SERVER_PORT}`);
         });
 
         server.on('error', (err) => {

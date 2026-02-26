@@ -4,7 +4,6 @@ const apiResponse = async (response, extra = {}) => {
     const { errorPrefix = '', asFile = false, ...extraRest } = extra;
     const contentType = response.headers.get('Content-Type') || '';
     const isJsonResponse = contentType.includes('application/json');
-    const isTextResponse = contentType.includes('text/plain');
     let data = {};
     let reason;
 

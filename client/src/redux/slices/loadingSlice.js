@@ -2,8 +2,7 @@ import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
     activeApiRequests: 0,
-    activeMediaRequests: 0,
-    resetTimestamp: Date.now()
+    activeMediaRequests: 0
 };
 
 const loadingSlice = createSlice({
@@ -24,12 +23,6 @@ const loadingSlice = createSlice({
 
         decrementMediaRequests: (state) => {
             state.activeMediaRequests--;
-        },
-
-        resetActiveRequests: (state) => {
-            state.activeApiRequests = 0;
-            state.activeMediaRequests = 0;
-            state.resetTimestamp = Date.now();
         }
     }
 });
@@ -38,8 +31,7 @@ export const {
     incrementApiRequests,
     decrementApiRequests,
     incrementMediaRequests,
-    decrementMediaRequests,
-    resetActiveRequests
+    decrementMediaRequests
 } = loadingSlice.actions;
 
 export default loadingSlice.reducer;

@@ -2,7 +2,7 @@ import { incrementApiRequests, decrementApiRequests } from '@/redux/slices/loadi
 import { addApiController, removeApiController } from '@/services/apiControllerService.js';
 import { logRequestStatus } from '@/helpers/requestLogger.js';
 import { sendAuthRefreshRequest } from '../authRequests.js';
-import waitForMinDelay from '@/helpers/waitForMinDelay.js';
+import waitForRequestDelay from '@/helpers/waitForRequestDelay.js';
 import { handleLogout } from '@/services/authService.js';
 import { CLIENT_CONSTANTS, NETWORK_FAIL_STATUS_CODE } from '@shared/constants.js';
 
@@ -39,7 +39,7 @@ const apiFetch = (url, options, config) => async (dispatch, getState) => {
     const { authRequired, skipRefreshTokenCheck, timeout, minDelay, errorPrefix } = finalConfig;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const timeoutId = setTimeout(() => controller.abort('timeout'), timeout);
     const requestTimestamp = Date.now();
 
     dispatch(incrementApiRequests());
@@ -125,38 +125,45 @@ const apiFetch = (url, options, config) => async (dispatch, getState) => {
 
         return response;
     } catch (err) {
-        const errorMessage = err.name === 'AbortError'
+        const reason = err === 'timeout' || err === 'manualAbort'
+            ? err
+            : (controller.signal.reason || null);
+        const isAbortError = err.name === 'AbortError' || err === 'timeout' || err === 'manualAbort';
+
+        const isTimeout = reason === 'timeout';
+        const isAborted = isAbortError && !isTimeout;
+
+        const errorMessage = isTimeout
             ? 'Время ожидания запроса истекло'
-            : err instanceof Error
-                ? err.message
-                : typeof err === 'string'
-                    ? err
-                    : 'Неизвестная ошибка';
-                    
+            : isAborted
+                ? 'Запрос отменен'
+                : (err instanceof Error ? err.message : String(err) || 'Ошибка запроса');
+
+        const statusCode = isTimeout ? NETWORK_FAIL_STATUS_CODE : isAborted ? 499 : 500;
+
+        const statusText = isTimeout
+            ? 'Request Timeout'
+            : isAborted
+                ? 'Request Aborted'
+                : 'Internal Error';
+
         const body = JSON.stringify({
-            message: `${errorPrefix ? errorPrefix + ': ' : ''}${errorMessage}`
+            message: `${errorPrefix ? errorPrefix + ': ' : ''}${errorMessage}`,
+            ...(isTimeout && { reason: REQUEST_STATUS.TIMEOUT })
         });
 
         return new Response(body, {
-            status: NETWORK_FAIL_STATUS_CODE,
-            statusText: 'Network Fail',
+            status: statusCode,
+            statusText,
             headers: { 'Content-Type': 'application/json' }
         });
     } finally {
         clearTimeout(timeoutId);
 
-        let resetTimestamp = getState().loading.resetTimestamp;
+        await waitForRequestDelay(requestTimestamp, minDelay, controller.signal);
 
-        if (requestTimestamp >= resetTimestamp) {
-            await waitForMinDelay(requestTimestamp, minDelay);
-
-            resetTimestamp = getState().loading.resetTimestamp;
-
-            if (requestTimestamp >= resetTimestamp) {
-                dispatch(decrementApiRequests());
-                removeApiController(controller);
-            }
-        }
+        dispatch(decrementApiRequests());
+        removeApiController(controller);
     }
 };
 

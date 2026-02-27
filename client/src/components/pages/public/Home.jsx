@@ -30,6 +30,7 @@ export default function Home() {
                     src="images/home-banner.jpg"
                     alt="Home Banner"
                 />
+                
                 <div className="home-hero-text">
                     <p className="title">
                         <b>

@@ -4,7 +4,6 @@ import { useLocation, useOutlet } from 'react-router-dom';
 import Breadcrumbs from '@/components/common/Breadcrumbs.jsx';
 import { checkAuth } from '@/services/authService.js';
 import { setIsNavigationBlocked } from '@/redux/slices/uiSlice.js';
-import { resetActiveRequests } from '@/redux/slices/loadingSlice.js';
 import { abortAllApiControllers } from '@/services/apiControllerService.js';
 import { routeConfig } from '@/config/appRouting.js';
 
@@ -25,7 +24,6 @@ export default function ProtectedPageContent() {
 
     const handleRouteChange = async () => {
         abortAllApiControllers(); // Отмена API-запросов через контроллеры
-        dispatch(resetActiveRequests()); // Сброс счётчиков запросов
 
         if (isAuthenticated) {
             dispatch(setIsNavigationBlocked(true));

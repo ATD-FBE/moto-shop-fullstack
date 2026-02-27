@@ -431,7 +431,9 @@ export const REQUEST_STATUS = {
     CONFLICT: 'conflict',
     INVALID: 'invalid',
     ERROR: 'error',
-    NETWORK: 'network'
+    NETWORK: 'network',
+    TIMEOUT: 'timeout',
+    ABORTED: 'aborted'
 };
 
 export const NETWORK_FAIL_STATUS_CODE = 520; // Свободный код для сетевой ошибки
@@ -479,11 +481,15 @@ export const resolveRequestStatus = (statusCode, reason = '') => {
             if (reason === REQUEST_STATUS.LIMITATION) return REQUEST_STATUS.LIMITATION;
             return REQUEST_STATUS.INVALID;
 
+        case 499: // Происходит только при переходе на другую страницу с активными запросами
+            return REQUEST_STATUS.ABORTED;
+
         case 500:
             return REQUEST_STATUS.ERROR;
 
         case NETWORK_FAIL_STATUS_CODE:
-            return REQUEST_STATUS.NETWORK;
+            if (reason === REQUEST_STATUS.TIMEOUT) return REQUEST_STATUS.NETWORK;
+            return REQUEST_STATUS.ERROR;
 
         default:
             return REQUEST_STATUS.ERROR;

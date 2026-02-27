@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import useSyncedStateWithRef from '@/hooks/useSyncedStateWithRef.js';
+import useImageTracking from '@/hooks/useImageTracking.js';
 
 export default function ZoomController({
     thumbImageRef,
@@ -9,6 +10,7 @@ export default function ZoomController({
     zoomFactor = 1
 }) {
     const [visible, setVisible] = useState(false);
+    
     const [backgroundState, setBackgroundState, backgroundStateRef] = useSyncedStateWithRef({
         x: 0,
         y: 0,
@@ -23,6 +25,7 @@ export default function ZoomController({
         h: 0,
         initialized: false
     });
+
     const isHoveringRef = useRef(false);
     const mouseCoordsRef = useRef(null);
     const zoomPreviewRef = useRef(null);
@@ -107,8 +110,10 @@ export default function ZoomController({
         setBackgroundState(prev => ({ ...prev, x: bgX, y: bgY }));
     };
     
+    // Использование функций хука отслеживания загрузки картинки
+    const { startTracking, completeTracking } = useImageTracking();
     
-    // Установка и и очистка слушателей мыши на thumb-картинке
+    // Установка и очистка слушателей мыши на thumb-картинке
     useEffect(() => {
         const thumbEl = thumbImageRef.current;
         if (!thumbEl) return;
@@ -118,10 +123,13 @@ export default function ZoomController({
             mouseCoordsRef.current = { clientX: e.clientX, clientY: e.clientY };
 
             if (!backgroundStateRef.current.initialized) {
+                startTracking(); // Запуск отслеживания загрузки картинки
+
                 // Загрузка оригинальной картинки, чтобы узнать её реальные размеры
                 const img = new Image();
 
                 img.onload = () => {
+                    completeTracking(); // Завершение отслеживания загрузки картинки при успехе
                     if (!isHoveringRef.current) return;
 
                     setBackgroundState(prev => ({
@@ -131,6 +139,10 @@ export default function ZoomController({
                         initialized: true
                     }));
                     setVisible(true);
+                };
+
+                img.onerror = () => {
+                    completeTracking(); // Завершение отслеживания загрузки картинки при ошибке
                 };
 
                 img.src = originalImageSrc;

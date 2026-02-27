@@ -1,41 +1,22 @@
-import React, { forwardRef, useRef, useEffect } from 'react';
-import { useStore, useDispatch } from 'react-redux';
-import { incrementMediaRequests, decrementMediaRequests } from '@/redux/slices/loadingSlice';
+import React, { forwardRef, useEffect } from 'react';
+import useImageTracking from '@/hooks/useImageTracking.js';
 
 // Проброс рефа через пропсы
 const TrackedImage = forwardRef((props, ref) => {
-    const hasStartedRef = useRef(false);
-    const hasCompletedRef = useRef(false);
-    const store = useStore();
-    const dispatch = useDispatch();
+    // Получение функций хука отслеживания загрузки картинки
+    const { startTracking, completeTracking } = useImageTracking();
 
-    const handleComplete = () => {
-        hasCompletedRef.current = true;
-        if (!hasStartedRef.current) return; // onLoad/onError сработал раньше хука (кеширование)
-
-        dispatch(decrementMediaRequests());
-    };
-
+    // Запуск отслеживания загрузки картинки
     useEffect(() => {
-        if (hasCompletedRef.current) return; // onLoad/onError сработал раньше хука (кеширование)
-
-        hasStartedRef.current = true;
-        dispatch(incrementMediaRequests());
-
-        // Cleanup функция — сработает при размонтировании
-        return () => {
-            if (hasStartedRef.current && !hasCompletedRef.current) {
-                dispatch(decrementMediaRequests());
-            }
-        };
-    }, [dispatch, store]);
+        startTracking();
+    }, [startTracking]);
 
     return (
         <img
             {...props}
             ref={ref}
-            onLoad={handleComplete}
-            onError={handleComplete}
+            onLoad={completeTracking}
+            onError={completeTracking}
             decode="async"
         />
     );

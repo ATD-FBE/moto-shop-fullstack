@@ -3515,15 +3515,27 @@ main {
     }
 
     .home-hero {
+        $banner-width: 1165;
+        $banner-height: 290;
+        $border-thickness: 1;
+        $total-w: $banner-width + (2 * $border-thickness);
+        $total-h: $banner-height + (2 * $border-thickness);
+
         position: relative;
-        width: fit-content;
-        border: 1px solid $color-main-dark-inactive;
+        width: 100%;
+        max-width: #{$total-w}px; // Ширина картинки + границы
+        aspect-ratio: #{$total-w} / #{$total-h}; // Резервирование места (картинка + границы)
+        border: #{$border-thickness}px solid $color-main-dark-inactive;
+        background-color: $color-main-light;
+        overflow: hidden;
 
         .home-banner-image {
-            max-width: 100%;
-            max-height: 100%;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
             vertical-align: middle;
         }
+
         .home-hero-text {
             position: absolute;
             right: 0;
@@ -3534,6 +3546,18 @@ main {
             font-weight: bold;
             font-style: italic;
             text-align: right;
+            opacity: 0;
+            transform: translateX(30px);
+            transition:
+                opacity 0.5s ease-out,
+                transform 0.5s ease-out;
+            pointer-events: none;
+
+            &.visible {
+                opacity: 1;
+                transform: translateX(0);
+                pointer-events: auto;
+            }
 
             p {
                 &.title {

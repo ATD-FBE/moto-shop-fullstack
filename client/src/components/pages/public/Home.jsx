@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import cn from 'classnames';
 import TrackedImage from '@/components/common/TrackedImage.jsx';
 import { routeConfig } from '@/config/appRouting.js';
 import { formatCurrency } from '@/helpers/textHelpers.js';
@@ -7,6 +8,7 @@ import { MIN_ORDER_AMOUNT } from '@shared/constants.js';
 import { WORKING_HOURS } from '@shared/company.js';
  
 export default function Home() {
+    const [bannerLoaded, setBannerLoaded] = useState(false);
     const [search, setSearch] = useState('');
     const navigate = useNavigate();
 
@@ -29,9 +31,10 @@ export default function Home() {
                     className="home-banner-image"
                     src="images/home-banner.jpg"
                     alt="Home Banner"
+                    onLoad={() => setBannerLoaded(true)}
                 />
                 
-                <div className="home-hero-text">
+                <div className={cn('home-hero-text', { 'visible': bannerLoaded })}>
                     <p className="title">
                         <b>
                             <span className="letter-enhance">М</span>ото-

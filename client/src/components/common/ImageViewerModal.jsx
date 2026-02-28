@@ -10,7 +10,6 @@ const modalPortalRoot = document.getElementById('modal-root') || document.body;
 
 export default function ImageViewerModal() {
     const { isOpen, images, initialIndex } = useSelector(state => state.modalImageViewer);
-    const [isImageReady, setIsImageReady] = useState(false);
     const [currentIdx, setCurrentIdx, currentIdxRef] = useSyncedStateWithRef(initialIndex); // Индекс
     const [isVisible, setIsVisible, isVisibleRef] = useSyncedStateWithRef(false); // Анимация
     const [isZoomable, setIsZoomable] = useState(false); // Масштабируемость картинки
@@ -75,10 +74,8 @@ export default function ImageViewerModal() {
     useEffect(() => {
         if (isOpen) {
             setCurrentIdx(initialIndex);
-            setIsImageReady(true);
             requestAnimationFrame(() => setIsVisible(true));
         } else { // Сброс при закрытии вьювера
-            setIsImageReady(false);
             setCurrentIdx(0);
             setIsZoomable(false);
             setIsZoomed(false);
@@ -113,37 +110,37 @@ export default function ImageViewerModal() {
 
     // Установка флага масштабирования картинки
     useEffect(() => {
-        if (!isImageReady) return;
-
-        const imgWrapper = imageWrapperRef.current;
+        if (!isOpen) return;
+    
         const img = mainImageRef.current;
-        if (!imgWrapper || !img) return;
+        if (!img) return;
     
         const checkZoomability = () => {
-            const wrapperWidth = imgWrapper.clientWidth;
-            const wrapperHeight = imgWrapper.clientHeight;
+            const imgWrapper = imageWrapperRef.current;
+            if (!imgWrapper || !img || img.naturalWidth === 0) return;
     
-            const naturalWidth = img.naturalWidth;
-            const naturalHeight = img.naturalHeight;
+            const { clientWidth: wrapperWidth, clientHeight: wrapperHeight } = imgWrapper;
+            const { naturalWidth, naturalHeight } = img;
     
             const canZoom = naturalWidth > wrapperWidth || naturalHeight > wrapperHeight;
             setIsZoomable(canZoom);
             if (!canZoom) setIsZoomed(false);
         };
     
+        // Если картинка уже в кеше и загружена => проверка зума
         if (img.complete && img.naturalWidth > 0) {
             checkZoomability();
-        } else {
-            img.onload = checkZoomability;
         }
     
+        // Установка слушателей в любом случае, так как src может измениться
+        img.addEventListener('load', checkZoomability);
         window.addEventListener('resize', checkZoomability);
-
+    
         return () => {
+            img.removeEventListener('load', checkZoomability);
             window.removeEventListener('resize', checkZoomability);
-            img.onload = null; // Очистка коллбэка, если картинка сменилась не успев загрузиться
         };
-    }, [isImageReady, currentIdx]);
+    }, [isOpen, images, currentIdx]);
 
     // Прокрутка к текущему превью в контейнере при изменении currentIdx
     useEffect(() => {

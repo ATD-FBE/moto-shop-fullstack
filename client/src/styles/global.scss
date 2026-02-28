@@ -988,12 +988,6 @@ ul {
                     &.current:hover {
                         box-shadow: 0 0 2px $color-main-light;
                     }
-    
-                    .thumb-img {
-                        display: block;
-                        max-width: 100%;
-                        max-height: 100%;
-                    }
                 }
             }
         }
@@ -1012,27 +1006,36 @@ ul {
 
                 &.zoomed {
                     display: block;
-                    width: auto;
-                    height: auto;
-                    margin: auto; // Для центрирования
-
-                    .main-image {
+                    width: fit-content;
+                    height: fit-content;
+                    min-width: 100%;
+                    min-height: 100%;
+                    margin: auto; // Для центрирования, если картинка в зуме меньше контейнера
+            
+                    .main-image.tracked-image-container {
                         display: block;
-                        max-width: none;
-                        max-height: none;
-                        margin: auto; // Для центрирования
-                        cursor: zoom-out;
+                        width: auto;
+                        height: auto;
+                        margin: auto; // Для центрирования, если картинка в зуме меньше контейнера
+            
+                        .tracked-image {
+                            max-width: none;
+                            max-height: none;
+                            margin: auto; // Для центрирования, если картинка в зуме меньше контейнера
+                            cursor: zoom-out;
+                        }
                     }
                 }
-    
-                .main-image {
-                    max-width: 100%;
-                    max-height: 100%;
-                    vertical-align: middle;
-                    user-select: none;
-        
+
+                .main-image.tracked-image-container {
+                    .tracked-image {
+                        user-select: none;
+                    }
+
                     &.zoomable {
-                        cursor: zoom-in;
+                        .tracked-image {
+                            cursor: zoom-in;
+                        }
                     }
                 }
             }
@@ -1290,6 +1293,44 @@ ul {
         background: $color-blue-light;
         border: 1px solid rgba($color-blue-light, 0.4);
         box-shadow: inset 0 0 4px rgba($color-blue-light, 0.8);
+    }
+}
+
+.tracked-image-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+
+    .tracked-image-loader-spinner {
+        z-index: 1;
+        visibility: hidden;
+        opacity: 0;
+        transition:
+            visibility $transition-fast-set,
+            opacity $transition-fast-set;
+
+        &.visible {
+            visibility: visible;
+            opacity: 1;
+        }
+    }
+
+    .tracked-image {
+        flex-shrink: 0;
+        display: block;
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        opacity: 0;
+        transition: opacity $transition-fast-set;
+
+        &.visible {
+            opacity: 1;
+        }
     }
 }
 
@@ -1589,7 +1630,6 @@ ul {
         position: relative;
         background-color: $color-main-light;
         overflow: hidden;
-        cursor: zoom-in;
         transition:
             box-shadow $transition-fast-set,
             border-color $transition-fast-set;
@@ -1618,11 +1658,12 @@ ul {
             box-shadow: 0 0 5px rgba($color-main-dark, 0.5);
         }
 
-        .thumb-img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
+        .thumb-img.tracked-image-container {
             transition: opacity $transition-fast-set;
+
+            .tracked-image {
+                cursor: zoom-in;
+            }
         }
         .checkbox-wrapper {
             position: absolute;
@@ -2262,17 +2303,15 @@ mark.highlighted-text {
 
                         .row-cell {
                             &.thumb {
-                                .product-thumb {
-                                    width: $product-thumb-size;
-                                    height: $product-thumb-size;
-                                    background-color: $color-main-light;
-                                    user-select: none;
-    
-                                    .product-thumb-img {
-                                        width: 100%;
-                                        height: 100%;
-                                        object-fit: contain;
-                                        vertical-align: middle;
+                                .cell-content {
+                                    overflow: visible;
+
+                                    .product-thumb {
+                                        width: $product-thumb-size;
+                                        height: $product-thumb-size;
+                                        outline: 1px solid $color-main-light-active;
+                                        background-color: $color-main-light;
+                                        user-select: none;
                                     }
                                 }
                             }
@@ -3069,18 +3108,9 @@ mark.highlighted-text {
         position: relative;
         background: color.mix(#fff, $color-blue, 92%);
 
-        .logo-image {
-            height: 100%;
-            position: absolute;
-            opacity: 0;
-            transition: opacity $transition-fast-set;
-
-            &.visible {
-                opacity: 1;
-            }
-        }
         .resource-loader-spinner {
             position: absolute;
+            z-index: 2;
             opacity: 0;
             visibility: hidden;
             transition:
@@ -3089,6 +3119,16 @@ mark.highlighted-text {
 
             &.visible {
                 visibility: visible;
+                opacity: 1;
+            }
+        }
+        .logo-image {
+            height: 100%;
+            position: absolute;
+            opacity: 0;
+            transition: opacity $transition-fast-set;
+
+            &.visible {
                 opacity: 1;
             }
         }
@@ -4195,19 +4235,19 @@ main {
         
                                 a {
                                     position: relative;
-                                    outline: 1px solid $color-main-light-active;
                                     cursor: default;
-                                    transition: outline-color $transition-fast-set;
-            
-                                    &:hover {
-                                        outline-color: $color-main-enhanced;
-                                    }
         
-                                    .product-thumb-img {
-                                        width: 100%;
-                                        height: 100%;
-                                        object-fit: contain;
-                                        vertical-align: middle;
+                                    .product-thumb-img.tracked-image-container {
+                                        overflow: visible; // Для видимости спиннера при загрузке
+
+                                        .tracked-image {
+                                            outline: 1px solid $color-main-light-active;
+                                            transition: outline-color $transition-fast-set;
+                
+                                            &:hover {
+                                                outline-color: $color-main-enhanced;
+                                            }
+                                        }
                                     }
                                     .zoom-lens {
                                         position: absolute;
@@ -4218,6 +4258,7 @@ main {
                                     }
                                 }
                             }
+
                             .product-title {
                                 $product-title-height: 3em * 1.25;
                                 
@@ -4466,14 +4507,13 @@ main {
                     width: 100%;
                     background-color: rgba(255, 255, 255, 0.5);
 
-                    .current-thumb-img {
-                        width: 100%;
-                        height: 100%;
-                        object-fit: contain;
+                    .current-thumb-img.tracked-image-container {
                         animation: none;
 
                         &.zoomable {
-                            cursor: zoom-in;
+                            .tracked-image {
+                                cursor: zoom-in;
+                            }
                         }
                         &.animate {
                             animation: flashZoom var(--fast-animation-duration) ease-in-out;
@@ -4524,16 +4564,8 @@ main {
                     &.current {
                         border-color: $color-blue-light;
                     }
-
                     &:hover {
                         box-shadow: 0 0 5px rgba($color-main-dark, 0.5);
-                    }
-
-                    .thumb-img {
-                        width: 100%;
-                        height: 100%;
-                        object-fit: contain;
-                        vertical-align: middle;
                     }
                 }
             }
@@ -5291,11 +5323,13 @@ main {
 
                                 &.thumb-link {
                                     .cell-content {
+                                        $thumb-outline-w: 1px;
+
                                         overflow: visible;
                                         
                                         .brand-new {
-                                            width: $product-thumb-small-size + 2px;
-                                            transform: translateX(-1px);
+                                            width: calc($product-thumb-small-size + 2 * $thumb-outline-w);
+                                            transform: translateX(-$thumb-outline-w);
                                             padding: 2px;
                                             background-color: $color-warn-light;
                                             color: $color-yellow;
@@ -5306,23 +5340,13 @@ main {
                                         .product-thumb {
                                             width: $product-thumb-small-size;
                                             height: $product-thumb-small-size;
+                                            outline: $thumb-outline-w solid $color-main-light-active;
                                             background-color: $color-main-light;
                                             user-select: none;
-
-                                            a {
-                                                outline: 1px solid $color-main-light-active;
-                                                transition: outline-color $transition-fast-set;
-                        
-                                                &:hover {
-                                                    outline-color: $color-main-enhanced;
-                                                }
-                    
-                                                .product-thumb-img {
-                                                    width: 100%;
-                                                    height: 100%;
-                                                    object-fit: contain;
-                                                    vertical-align: middle;
-                                                }
+                                            transition: outline-color $transition-fast-set;
+                
+                                            &:hover {
+                                                outline-color: $color-main-enhanced;
                                             }
                                         }
                                     }
@@ -6579,13 +6603,6 @@ main {
                             &:hover {
                                 outline-color: $color-main-enhanced;
                             }
-        
-                            .product-thumb-img {
-                                width: 100%;
-                                height: 100%;
-                                object-fit: contain;
-                                vertical-align: middle;
-                            }
                         }
                         .product-info {
                             grid-area: info;
@@ -7081,15 +7098,6 @@ main {
                                         &:hover {
                                             outline-color: $color-main-enhanced;
                                         }
-                    
-                                        a {
-                                            .product-thumb-img {
-                                                width: 100%;
-                                                height: 100%;
-                                                object-fit: contain;
-                                                vertical-align: middle;
-                                            }
-                                        }
                                     }
                                     .product-title {
                                         a {
@@ -7471,17 +7479,15 @@ main {
     
                             .row-cell {
                                 &.thumb {
-                                    .product-thumb {
-                                        width: $product-thumb-size;
-                                        height: $product-thumb-size;
-                                        background-color: $color-main-light;
-                                        user-select: none;
-        
-                                        .product-thumb-img {
-                                            width: 100%;
-                                            height: 100%;
-                                            object-fit: contain;
-                                            vertical-align: middle;
+                                    .cell-content {
+                                        overflow: visible;
+                                        
+                                        .product-thumb {
+                                            width: $product-thumb-size;
+                                            height: $product-thumb-size;
+                                            outline: 1px solid $color-main-light-active;
+                                            background-color: $color-main-light;
+                                            user-select: none;
                                         }
                                     }
                                 }

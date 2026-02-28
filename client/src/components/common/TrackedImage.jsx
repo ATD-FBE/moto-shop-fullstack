@@ -1,7 +1,8 @@
 import React, { forwardRef, useState, useRef, useCallback, useEffect } from 'react';
 import useImageTracking from '@/hooks/useImageTracking.js';
+import { CLIENT_CONSTANTS } from '@shared/constants.js';
 
-const imgPlaceholder = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+const { BLANK_IMAGE_SRC } = CLIENT_CONSTANTS;
 
 const TrackedImage = forwardRef((props, ref) => {
     const { src, onLoad, onError, ...restProps } = props;
@@ -29,7 +30,7 @@ const TrackedImage = forwardRef((props, ref) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
                     startTracking(); // Запуск счетчика только когда картинка "на подходе"
-                    setHasStarted(true);
+                    setHasStarted(true); // Флаг начала загрузки (установка src картинки)
                     observer.disconnect();
                 }
             });
@@ -46,21 +47,21 @@ const TrackedImage = forwardRef((props, ref) => {
         if (!hasStarted) return; // Срабатывает на заглушке
 
         completeTracking(); // Завершение отслеживания загрузки картинки после загрузки
-        onLoad?.(e); // Вызов передаваемой функции для загрузки
+        onLoad?.(e); // Вызов передаваемой функции после загрузки
     };
 
     const handleError = (e) => {
         if (!hasStarted) return; // Может сработать на заглушке
 
-        completeTracking(); // Завершение отслеживания загрузки картинки после ошибки
-        onError?.(e); // Вызов передаваемой функции для ошибки
+        completeTracking(); // Завершение отслеживания загрузки картинки при ошибке
+        onError?.(e); // Вызов передаваемой функции при ошибке
     };
 
     return (
         <img
             {...restProps}
             ref={setRefs}
-            src={hasStarted ? src : imgPlaceholder}
+            src={hasStarted ? src : BLANK_IMAGE_SRC}
             onLoad={handleLoad}
             onError={handleError}
             loading="lazy" // Ленивая загрузка

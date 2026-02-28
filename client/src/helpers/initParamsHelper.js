@@ -74,6 +74,6 @@ export const getInitLimitParam = (searchParams, limitOptions) => {
 };
 
 export const getInitCategoryParams = (searchParams, categoryMap) => {
-    const category = searchParams.get('category')?.split('-').pop() || '';
+    const category = searchParams.get('category')?.split('~').pop() || '';
     return categoryMap[category] ? category : '';
 };

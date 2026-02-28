@@ -130,7 +130,7 @@ export default function OrderDetailsItems({
                     return acc;
                 }
 
-                const productId = name.split('-')[1];
+                const productId = name.split('-')[1]; // name создано makeOrderItemQuantityFieldName
                 const { min, max, defaultValue } = fieldConfigMap[productId] ?? {};
                 const ruleCheck = validation.test(value);
 

@@ -736,6 +736,7 @@ export const CLIENT_CONSTANTS = !isServer
         },
         PRODUCT_IMAGE_LOADER: '/images/product_image_loader.jpg',
         PRODUCT_IMAGE_PLACEHOLDER: '/images/product_image_placeholder.jpg',
+        BLANK_IMAGE_SRC: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
         PRODUCT_AUTOSLIDE_TIMER: 5000,
         CATEGORY_ROOT_LABEL: '(корень)',
         NO_VALUE_LABEL: '---',

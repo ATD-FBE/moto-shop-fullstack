@@ -151,7 +151,7 @@ export default function Catalog() {
         if (!initialized) return;
 
         const category = selectedCategoryId && categoryMap[selectedCategoryId]
-            ? `${categoryMap[selectedCategoryId].slug}-${selectedCategoryId}`
+            ? `${categoryMap[selectedCategoryId].slug}~${selectedCategoryId}`
             : '';
             
         const params = new URLSearchParams({ category, search, sort, page, limit });

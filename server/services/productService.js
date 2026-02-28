@@ -303,7 +303,7 @@ export const buildProductsComputedFields = (query) => {
 // Пайплайн для категорий товаров
 export const buildCategoriesPipeline = (categoryParam) => {
     const categoriesPipeline = [];
-    const categoryId = categoryParam?.split('-').pop() || '';
+    const categoryId = categoryParam?.split('~').pop() || '';
 
     if (categoryId && mongoose.Types.ObjectId.isValid(categoryId)) {
         const categoryObjectId = mongoose.Types.ObjectId.createFromHexString(categoryId);

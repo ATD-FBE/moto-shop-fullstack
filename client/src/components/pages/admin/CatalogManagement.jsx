@@ -215,7 +215,7 @@ export default function CatalogManagement() {
         if (!initialized) return;
 
         const category = selectedCategoryId && categoryMap[selectedCategoryId]
-            ? `${categoryMap[selectedCategoryId].slug}-${selectedCategoryId}`
+            ? `${categoryMap[selectedCategoryId].slug}~${selectedCategoryId}`
             : '';
         const products = shouldProductsLoad;
 

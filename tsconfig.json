@@ -1,38 +1,38 @@
 {
 	"compilerOptions": {
-		"target": "esnext",
-		"module": "nodenext",
-		"moduleResolution": "nodenext",
-		"isolatedModules": true,
-		"lib": ["esnext", "dom", "dom.iterable"],
-		"jsx": "react-jsx",
-
-		"types": ["node", "jest", "@testing-library/jest-dom"],
-
-		"baseUrl": ".",
-		"paths": {
-			"@/*": ["client/src/*"],
-			"@server/*": ["server/*"],
-			"@shared/*": ["shared/*"]
-		},
-
-		"strict": true,
-		"noUncheckedIndexedAccess": true,
-		"noEmit": true,
-		"skipLibCheck": true,
-		"esModuleInterop": true,
-		"sourceMap": true
+	  "target": "esnext", // Стандарт выходящего JS: самый современный синтаксис
+	  "module": "nodenext", // Стандарт модулей: современные ES-модули для Node.js
+	  "moduleResolution": "nodenext", // Алгоритм поиска импортов: строго по правилам новой Node.js
+	  "isolatedModules": true, // Безопасность сборки: гарантирует совместимость с Babel-лоадером
+	  "lib": ["esnext", "dom", "dom.iterable"], // Встроенные типы: фичи современного JS, объекты браузера и итераторы DOM
+	  "jsx": "react-jsx", // Поддержка JSX: автоматический синтаксис для React 17+ без явного import React
+  
+	  "types": ["node", "jest", "@testing-library/jest-dom"], // Глобальные типы: подключает окружение Node.js и глобалы для тестов
+  
+	  "baseUrl": ".",  // Корень проекта: базовая папка для отсчета путей алиасов
+	  "paths": { // Пути-алиасы: карта коротких путей для читаемости импортов и VS Code
+		"@/*": ["client/src/*"], // Алиас на исходники фронтенда
+		"@server/*": ["server/*"], // Алиас на код бэкенд-сервера
+		"@shared/*": ["shared/*"] // Алиас на общую папку типов и утилит
+	  },
+  
+	  "strict": true, // Максимальная строгость: включает все проверки типов, запрещает any
+	  "noUncheckedIndexedAccess": true, // Безопасность массивов/объектов: принуждает проверять элементы на undefined
+	  "noEmit": true, // Запрет компиляции: только проверка типов, файлы на диск в папку dist не пишутся
+	  "skipLibCheck": true, // Скорость сборки: игнорирует проверку типов внутри библиотек в node_modules
+	  "esModuleInterop": true, // Совместимость модулей: позволяет импортировать CommonJS через стандартный import
+	  "sourceMap": true // Карты кода: связывает JS в рантайме с исходными файлами TS
 	},
-	"include": [
-		"client/**/*",
-		"server/**/*",
-		"shared/**/*",
-		"jest/**/*"
+	"include": [ // Зона контроля TS: какие папки сканировать и проверять на типы
+	  "client/**/*", // Фронтенд на React
+	  "server/**/*", // Бэкенд на Express
+	  "shared/**/*", // Общий код (фронт + бэк)
+	  "jest/**/*"    // Конфиги и файлы тестов
 	],
-	"exclude": [
-		"node_modules",
-		"client/build",
-		"_logs",
-		"storage"
+	"exclude": [ // Слепая зона TS: какие папки компилятор обязан игнорировать
+	  "node_modules", // Сторонние библиотеки
+	  "client/build", // Готовый билд фронтенда
+	  "_logs",        // Логи приложения
+	  "storage"       // Локальное хранилище файлов
 	]
-}
+  }
